@@ -117,7 +117,7 @@ const smoothEl = document.getElementById('gc-smooth');
 // Create loading overlay
 let loadingDiv = document.createElement('div');
 loadingDiv.id = 'audio-loading';
-loadingDiv.textContent = 'MATTER';
+loadingDiv.textContent = 'MACHINE #4';
 loadingDiv.style.position = 'fixed';
 loadingDiv.style.top = '0';
 loadingDiv.style.left = '0';
@@ -774,7 +774,7 @@ function hideRoomCodePanel() {
 
 // --- BLINKING ---
 // Text animation
-const texts = ['MATTER', 'DAVID', 'BORING'];
+const texts = ['MACHINE#4', 'DAVID', 'BORING'];
 let textInterval;
 let textCount = 0;
 textInterval = setInterval(() => {

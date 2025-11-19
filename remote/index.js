@@ -24,7 +24,7 @@ import { isMobile } from '../utils.js';
 
     gyroNotice = document.createElement('p');
     gyroNotice.textContent =
-      'You have decided to use your mobile device as a remote. Gyroscope access is required to use your mobile device as a controller for [MATTER] music video. Tap "Enable Gyro" to continue.';
+      'You have decided to use your mobile device as a remote. Gyroscope access is required to use your mobile device as a controller for [MACHINE #4] music video. Tap "Enable Gyro" to continue.';
     gyroNotice.style.margin = '0 0 8px 0';
     gyroNotice.style.color = '#ffffff';
     guestPanelEl.insertBefore(gyroNotice, guestPanelEl.firstChild);
@@ -250,6 +250,7 @@ import { isMobile } from '../utils.js';
   });
 
   enterBtn.addEventListener('click', () => {
+    // alert('abcd');
     const hiddenEl = document.getElementById('gc-room-hidden');
     if (!hiddenEl) return alert('Room input not found');
     const code = (hiddenEl.value || '').trim().toUpperCase();

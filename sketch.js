@@ -1,112 +1,94 @@
-// Map & Audio, Cesium
+  source.onended = () => {
+    stopPlayback();
+    isPlaying = false;
+    audioEnded = true;
+    if (isPaused) return;
+    pauseTime = 0; // reset
+    // Change playBtn to restart mode
+    if (playBtn) {
+      playBtn.textContent = 'RESTART';
+      playBtn.style.pointerEvents = 'auto';
+      playBtn.onclick = function (e) {
+        e.preventDefault();
+        audioEnded = false;
+        playBtn.textContent = 'PAUSE';
+        startPlayback(0);
+        startPlaybackTimestamp(0);
+        // Remove credit overlay if present
+        const loadingDiv = document.getElementById('audio-loading');
+        if (loadingDiv) loadingDiv.remove();
+        const creditRestart = document.getElementById('credit-restart-btn');
+        if (creditRestart) creditRestart.remove();
+      };
+    }
+    // Hide pauseBtn
+    if (pauseBtn) pauseBtn.style.opacity = '0';
+    // Stop the timer
+    stopPlaybackTimestamp();
 
-import { defaultServer } from './config.js';
-import { isMobile } from './utils.js';
-
-// --- Cesium Standalone Logic ---
-let viewer, movingPoint;
-let audioCtx, source, analyser, timeDomainData, audioBuffer;
-let interval;
-let height = 100;
-let idx = 0;
-let intervalFrame = 100; // ms
-
-// shared gyro state updated by Socket.IO messages (or device fallback)
-const gyro = { alpha: null, beta: null, gamma: null };
-let cameraHeading = 0; // store current camera rotation in radians - correlated with gyro's rotation
-
-let socket = null;
-
-// Loading States
-let audioReady = false;
-let mapReady = false;
-
-// Modes
-let hasSelectedMode = true;
-let isGuest = false;
-
-// UI Elements
-// GYRO INFO UI
-const gyroInfoUI = document.createElement('div');
-gyroInfoUI.id = 'gyro-info-ui';
-gyroInfoUI.style.position = 'fixed';
-gyroInfoUI.style.left = '10px';
-gyroInfoUI.style.top = '10px';
-gyroInfoUI.style.zIndex = 30000;
-gyroInfoUI.style.color = 'white';
-gyroInfoUI.innerText = '00.00';
-document.body.appendChild(gyroInfoUI);
-
-const deltaInfoUI = document.createElement('div');
-deltaInfoUI.id = 'delta-info-ui';
-deltaInfoUI.style.position = 'fixed';
-deltaInfoUI.style.right = '10px';
-deltaInfoUI.style.top = '10px';
-deltaInfoUI.style.zIndex = 30000;
-deltaInfoUI.style.color = 'white';
-deltaInfoUI.innerText = '00.00';
-document.body.appendChild(deltaInfoUI);
-
-const idUI = document.createElement('div');
-idUI.id = 'id-ui';
-idUI.style.position = 'fixed';
-idUI.style.bottom = '10px';
-idUI.style.right = '10px';
-idUI.style.zIndex = 30000;
-idUI.style.color = 'white';
-idUI.innerText = '000@EKEZIA00';
-document.body.appendChild(idUI);
-
-// Create a small overlay UI
-const ui = document.createElement('div');
-ui.id = 'room-code-panel';
-ui.style.position = 'fixed';
-ui.style.width = '100vw';
-ui.style.height = '100dvh';
-ui.style.display = 'flex';
-ui.style.flexDirection = 'column';
-ui.style.justifyContent = 'center';
-ui.style.alignItems = 'center';
-ui.style.zIndex = 99;
-ui.style.background = 'rgba(0,0,0,0.)';
-ui.style.color = 'white';
-ui.style.fontSize = '16px';
-ui.style.pointerEvents = 'auto'; // panel itself is interactive
-ui.style.opacity = 1;
-ui.style.backdropFilter = 'blur(16px)';
-ui.style.textAlign = 'center';
-ui.style.transition =
-  'backdrop-filter 0.7s cubic-bezier(.4,0,.2,1), background 0.7s cubic-bezier(.4,0,.2,1), opacity 0.7s cubic-bezier(.4,0,.2,1)';
-ui.innerHTML = `
-    <p style="width:400px;">Enter the room code on your mobile device to use it as remote control</p>
-
-    <div id="room-input-container" style="display:flex;gap:6px;margin-bottom:6px"></div>
-    <input id="gc-room" type="hidden" />
-    <p>Don't have a mobile device?<br/ ></p>
-    <div style="display:flex;gap:6px;margin-bottom:6px"><button id="gc-connect">AUTOPILOT</button></div>
-  `;
-// <div id='gc-status' style='margin-top:6px;font-size:12px;opacity:0.9'>
-//   Disconnected
-// </div>;
-
-document.body.appendChild(ui);
-
-// create visible digit spans
-const roomInputContainerEl = document.getElementById('room-input-container');
-if (roomInputContainerEl && roomInputContainerEl.children.length === 0) {
-  for (let i = 0; i < 4; i++) {
-    const s = document.createElement('span');
-    s.style.width = '40px';
-    s.style.height = '60px';
-    s.style.background = '#ccc';
-    s.style.borderRadius = '8px';
-    s.style.display = 'inline-flex';
-    s.style.alignItems = 'center';
-    s.style.justifyContent = 'center';
-    s.style.fontSize = '32px';
-    s.style.fontWeight = '600';
-    s.textContent = '';
-    roomInputContainerEl.appendChild(s);
+    // Show the loadingDiv again, but with credit text and blinking
+    let loadingDiv = document.getElementById('audio-loading');
+    if (loadingDiv) loadingDiv.remove();
+    loadingDiv = document.createElement('div');
+    loadingDiv.id = 'audio-loading';
+    loadingDiv.style.position = 'fixed';
+    loadingDiv.style.top = '0';
+    loadingDiv.style.left = '0';
+    loadingDiv.style.width = '100vw';
+    loadingDiv.style.height = '100vh';
+    loadingDiv.style.background = 'rgba(0,0,0,0.4)';
+    loadingDiv.style.color = 'white';
+    loadingDiv.style.display = 'flex';
+    loadingDiv.style.alignItems = 'center';
+    loadingDiv.style.justifyContent = 'center';
+    loadingDiv.style.fontSize = '6rem';
+    loadingDiv.style.zIndex = '2147483647';
+    loadingDiv.style.backdropFilter = 'blur(16px)';
+    loadingDiv.style.filter = 'blur(4px)';
+    document.body.appendChild(loadingDiv);
+    // Blinking credit sequence
+    const creditBlinkTexts = [
+      '<span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>',
+      '<span style="font-size:2.2rem;font-weight:700;line-height:1.2;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>'
+    ];
+    let creditBlinkCount = 0;
+    if (window._creditBlinkInterval) clearInterval(window._creditBlinkInterval);
+    window._creditBlinkInterval = setInterval(() => {
+      creditBlinkCount++;
+      loadingDiv.innerHTML = creditBlinkTexts[creditBlinkCount % creditBlinkTexts.length];
+    }, 1000);
+    // Add a fixed restart button under the credit
+    let creditRestart = document.getElementById('credit-restart-btn');
+    if (creditRestart) creditRestart.remove();
+    creditRestart = document.createElement('button');
+    creditRestart.id = 'credit-restart-btn';
+    creditRestart.textContent = 'RESTART';
+    creditRestart.style.position = 'fixed';
+    creditRestart.style.bottom = '8vh';
+    creditRestart.style.left = '50%';
+    creditRestart.style.transform = 'translateX(-50%)';
+    creditRestart.style.zIndex = '2147483648';
+    creditRestart.style.fontSize = '2rem';
+    creditRestart.style.padding = '0.7em 2em';
+    creditRestart.style.background = 'rgba(0,0,0,0.7)';
+    creditRestart.style.color = 'white';
+    creditRestart.style.border = 'none';
+    creditRestart.style.borderRadius = '1em';
+    creditRestart.style.cursor = 'pointer';
+    creditRestart.style.pointerEvents = 'auto';
+    creditRestart.style.fontFamily = 'inherit';
+    document.body.appendChild(creditRestart);
+    creditRestart.onclick = function (e) {
+      e.preventDefault();
+      // Remove credit overlay and restart button
+      if (loadingDiv) loadingDiv.remove();
+      if (creditRestart) creditRestart.remove();
+      clearInterval(window._creditBlinkInterval);
+      audioEnded = false;
+      playBtn.textContent = 'PAUSE';
+      startPlayback(0);
+      startPlaybackTimestamp(0);
+    };
   }
 }
 // elements

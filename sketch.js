@@ -128,7 +128,7 @@ loadingDiv.style.color = 'white';
 loadingDiv.style.display = 'flex';
 loadingDiv.style.alignItems = 'center';
 loadingDiv.style.justifyContent = 'center';
-loadingDiv.style.fontSize = '12rem';
+loadingDiv.style.fontSize = '6rem';
 loadingDiv.style.zIndex = '999';
 loadingDiv.style.backdropFilter = 'blur(16px)';
 loadingDiv.style.filter = 'blur(4px)';
@@ -345,12 +345,55 @@ function startPlayback(fromOffset = 0) {
         playBtn.textContent = 'PAUSE';
         startPlayback(0);
         startPlaybackTimestamp(0);
+        // Remove credit overlay if present
+        const credit = document.getElementById('credit-overlay');
+        if (credit) credit.remove();
       };
     }
     // Hide pauseBtn
     if (pauseBtn) pauseBtn.style.opacity = '0';
     // Stop the timer
     stopPlaybackTimestamp();
+
+    // Show credit overlay
+    let credit = document.getElementById('credit-overlay');
+    if (!credit) {
+      credit = document.createElement('div');
+      credit.id = 'credit-overlay';
+      credit.style.position = 'fixed';
+      credit.style.bottom = '10%';
+      credit.style.left = '50%';
+      credit.style.transform = 'translateX(-50%)';
+      credit.style.zIndex = '10001';
+      credit.style.display = 'flex';
+      credit.style.flexDirection = 'column';
+      credit.style.alignItems = 'center';
+      credit.style.justifyContent = 'center';
+      credit.style.pointerEvents = 'auto';
+      credit.style.userSelect = 'none';
+      credit.style.cursor = 'pointer';
+      credit.innerHTML = `
+        <span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
+        <span style="font-size:2.2rem;font-weight:700;line-height:1.2;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>
+      `;
+      document.body.appendChild(credit);
+      // Blinking effect
+      let blink = true;
+      let blinkInterval = setInterval(() => {
+        if (!credit) return;
+        credit.style.opacity = blink ? '1' : '0.2';
+        blink = !blink;
+      }, 600);
+      // Hide on hover
+      credit.addEventListener('mouseenter', () => {
+        credit.style.display = 'none';
+      });
+      credit.addEventListener('mouseleave', () => {
+        credit.style.display = 'flex';
+      });
+      // Remove interval if overlay is removed
+      credit._cleanup = () => clearInterval(blinkInterval);
+    }
   };
 }
 
@@ -858,13 +901,24 @@ function hideRoomCodePanel() {
 
 // --- BLINKING ---
 // Text animation
-const texts = ['MACHINE#4', 'DAVID', 'BORING'];
+const texts = [
+  { text: 'MACHINE#4', fontSize: '6rem' },
+  { text: 'DAVID', fontSize: '12rem' },
+  { text: 'BORING', fontSize: '12rem' },
+];
 let textInterval;
 let textCount = 0;
 textInterval = setInterval(() => {
   textCount++;
   if (loadingDiv) {
-    loadingDiv.textContent = texts[textCount % texts.length];
+    const entry = texts[textCount % texts.length];
+    if (typeof entry === 'string') {
+      loadingDiv.textContent = entry;
+      loadingDiv.style.fontSize = '12rem';
+    } else {
+      loadingDiv.textContent = entry.text;
+      loadingDiv.style.fontSize = entry.fontSize;
+    }
   }
 }, 100);
 

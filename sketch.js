@@ -1,120 +1,125 @@
-  source.onended = () => {
-    stopPlayback();
-    isPlaying = false;
-    audioEnded = true;
-    if (isPaused) return;
-    pauseTime = 0; // reset
-    // Change playBtn to restart mode
-    if (playBtn) {
-      playBtn.textContent = 'RESTART';
-      playBtn.style.pointerEvents = 'auto';
-      playBtn.onclick = function (e) {
-        e.preventDefault();
-        audioEnded = false;
-        playBtn.textContent = 'PAUSE';
-        startPlayback(0);
-        startPlaybackTimestamp(0);
-        // Remove credit overlay if present
-        const loadingDiv = document.getElementById('audio-loading');
-        if (loadingDiv) loadingDiv.remove();
-        const creditRestart = document.getElementById('credit-restart-btn');
-        if (creditRestart) creditRestart.remove();
-      };
-    }
-    // Hide pauseBtn
-    if (pauseBtn) pauseBtn.style.opacity = '0';
-    // Stop the timer
-    stopPlaybackTimestamp();
-
-    // Show the loadingDiv again, but with credit text and blinking
-    let loadingDiv = document.getElementById('audio-loading');
-    if (loadingDiv) loadingDiv.remove();
-    loadingDiv = document.createElement('div');
-    loadingDiv.id = 'audio-loading';
-    loadingDiv.style.position = 'fixed';
-    loadingDiv.style.top = '0';
-    loadingDiv.style.left = '0';
-    loadingDiv.style.width = '100vw';
-    loadingDiv.style.height = '100vh';
-    loadingDiv.style.background = 'rgba(0,0,0,0.4)';
-    loadingDiv.style.color = 'white';
-    loadingDiv.style.display = 'flex';
-    loadingDiv.style.alignItems = 'center';
-    loadingDiv.style.justifyContent = 'center';
-    loadingDiv.style.fontSize = '6rem';
-    loadingDiv.style.zIndex = '2147483647';
-    loadingDiv.style.backdropFilter = 'blur(16px)';
-    loadingDiv.style.filter = 'blur(4px)';
-    document.body.appendChild(loadingDiv);
-    // Blinking credit sequence
-    const creditBlinkTexts = [
-      '<span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>',
-      '<span style="font-size:2.2rem;font-weight:700;line-height:1.2;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>'
-    ];
-    let creditBlinkCount = 0;
-    if (window._creditBlinkInterval) clearInterval(window._creditBlinkInterval);
-    window._creditBlinkInterval = setInterval(() => {
-      creditBlinkCount++;
-      loadingDiv.innerHTML = creditBlinkTexts[creditBlinkCount % creditBlinkTexts.length];
-    }, 1000);
-    // Add a fixed restart button under the credit
-    let creditRestart = document.getElementById('credit-restart-btn');
-    if (creditRestart) creditRestart.remove();
-    creditRestart = document.createElement('button');
-    creditRestart.id = 'credit-restart-btn';
-    creditRestart.textContent = 'RESTART';
-    creditRestart.style.position = 'fixed';
-    creditRestart.style.bottom = '8vh';
-    creditRestart.style.left = '50%';
-    creditRestart.style.transform = 'translateX(-50%)';
-    creditRestart.style.zIndex = '2147483648';
-    creditRestart.style.fontSize = '2rem';
-    creditRestart.style.padding = '0.7em 2em';
-    creditRestart.style.background = 'rgba(0,0,0,0.7)';
-    creditRestart.style.color = 'white';
-    creditRestart.style.border = 'none';
-    creditRestart.style.borderRadius = '1em';
-    creditRestart.style.cursor = 'pointer';
-    creditRestart.style.pointerEvents = 'auto';
-    creditRestart.style.fontFamily = 'inherit';
-    document.body.appendChild(creditRestart);
-    creditRestart.onclick = function (e) {
+function handleAudioEnded() {
+  stopPlayback();
+  isPlaying = false;
+  audioEnded = true;
+  if (isPaused) return;
+  pauseTime = 0; // reset
+  // Change playBtn to restart mode
+  if (playBtn) {
+    playBtn.textContent = 'RESTART';
+    playBtn.style.pointerEvents = 'auto';
+    playBtn.onclick = function (e) {
       e.preventDefault();
-      // Remove credit overlay and restart button
-      if (loadingDiv) loadingDiv.remove();
-      if (creditRestart) creditRestart.remove();
-      clearInterval(window._creditBlinkInterval);
       audioEnded = false;
       playBtn.textContent = 'PAUSE';
       startPlayback(0);
       startPlaybackTimestamp(0);
+      // Remove credit overlay if present
+      const loadingDiv = document.getElementById('audio-loading');
+      if (loadingDiv) loadingDiv.remove();
+      const creditRestart = document.getElementById('credit-restart-btn');
+      if (creditRestart) creditRestart.remove();
     };
   }
+  // Hide pauseBtn
+  if (pauseBtn) pauseBtn.style.opacity = '0';
+  // Stop the timer
+  stopPlaybackTimestamp();
+
+  // Show the loadingDiv again, but with credit text and blinking
+  let loadingDiv = document.getElementById('audio-loading');
+  if (loadingDiv) loadingDiv.remove();
+  loadingDiv = document.createElement('div');
+  loadingDiv.id = 'audio-loading';
+  loadingDiv.style.position = 'fixed';
+  loadingDiv.style.top = '0';
+  loadingDiv.style.left = '0';
+  loadingDiv.style.width = '100vw';
+  loadingDiv.style.height = '100vh';
+  loadingDiv.style.background = 'rgba(0,0,0,0.4)';
+  loadingDiv.style.color = 'white';
+  loadingDiv.style.display = 'flex';
+  loadingDiv.style.alignItems = 'center';
+  loadingDiv.style.justifyContent = 'center';
+  loadingDiv.style.fontSize = '6rem';
+  loadingDiv.style.zIndex = '2147483647';
+  loadingDiv.style.backdropFilter = 'blur(16px)';
+  loadingDiv.style.filter = 'blur(4px)';
+  document.body.appendChild(loadingDiv);
+  // Blinking credit sequence
+  const creditBlinkTexts = [
+    '<span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>',
+    '<span style="font-size:2.2rem;font-weight:700;line-height:1.2;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>',
+  ];
+  let creditBlinkCount = 0;
+  if (window._creditBlinkInterval) clearInterval(window._creditBlinkInterval);
+  window._creditBlinkInterval = setInterval(() => {
+    creditBlinkCount++;
+    loadingDiv.innerHTML =
+      creditBlinkTexts[creditBlinkCount % creditBlinkTexts.length];
+  }, 1000);
+  // Add a fixed restart button under the credit
+  let creditRestart = document.getElementById('credit-restart-btn');
+  if (creditRestart) creditRestart.remove();
+  creditRestart = document.createElement('button');
+  creditRestart.id = 'credit-restart-btn';
+  creditRestart.textContent = 'RESTART';
+  creditRestart.style.position = 'fixed';
+  creditRestart.style.bottom = '8vh';
+  creditRestart.style.left = '50%';
+  creditRestart.style.transform = 'translateX(-50%)';
+  creditRestart.style.zIndex = '2147483648';
+  creditRestart.style.fontSize = '2rem';
+  creditRestart.style.padding = '0.7em 2em';
+  creditRestart.style.background = 'rgba(0,0,0,0.7)';
+  creditRestart.style.color = 'white';
+  creditRestart.style.border = 'none';
+  creditRestart.style.borderRadius = '1em';
+  creditRestart.style.cursor = 'pointer';
+  creditRestart.style.pointerEvents = 'auto';
+  creditRestart.style.fontFamily = 'inherit';
+  document.body.appendChild(creditRestart);
+  creditRestart.onclick = function (e) {
+    e.preventDefault();
+    // Remove credit overlay and restart button
+    if (loadingDiv) loadingDiv.remove();
+    if (creditRestart) creditRestart.remove();
+    clearInterval(window._creditBlinkInterval);
+    audioEnded = false;
+    playBtn.textContent = 'PAUSE';
+    startPlayback(0);
+    startPlaybackTimestamp(0);
+  };
 }
+
+document.body.appendChild(loadingDiv);
 // elements
 const roomInput = document.getElementById('gc-room');
 const roomInputContainer = document.getElementById('room-input-container');
 const smoothEl = document.getElementById('gc-smooth');
 
 // Create loading overlay
-let loadingDiv = document.createElement('div');
-loadingDiv.id = 'audio-loading';
-loadingDiv.textContent = 'MACHINE #4';
-loadingDiv.style.position = 'fixed';
-loadingDiv.style.top = '0';
-loadingDiv.style.left = '0';
-loadingDiv.style.width = '100vw';
-loadingDiv.style.height = '100vh';
-loadingDiv.style.background = 'rgba(0,0,0,0.4)';
-loadingDiv.style.color = 'white';
-loadingDiv.style.display = 'flex';
-loadingDiv.style.alignItems = 'center';
-loadingDiv.style.justifyContent = 'center';
-loadingDiv.style.fontSize = '6rem';
-loadingDiv.style.zIndex = '999';
-loadingDiv.style.backdropFilter = 'blur(16px)';
-loadingDiv.style.filter = 'blur(4px)';
-document.body.appendChild(loadingDiv);
+let loadingDiv;
+window.addEventListener('DOMContentLoaded', () => {
+  loadingDiv = document.createElement('div');
+  loadingDiv.id = 'audio-loading';
+  loadingDiv.textContent = 'MACHINE#4';
+  loadingDiv.style.position = 'fixed';
+  loadingDiv.style.top = '0';
+  loadingDiv.style.left = '0';
+  loadingDiv.style.width = '100vw';
+  loadingDiv.style.height = '100vh';
+  loadingDiv.style.background = 'rgba(0,0,0,0.4)';
+  loadingDiv.style.color = 'white';
+  loadingDiv.style.display = 'flex';
+  loadingDiv.style.alignItems = 'center';
+  loadingDiv.style.justifyContent = 'center';
+  loadingDiv.style.fontSize = '6rem';
+  loadingDiv.style.zIndex = '999';
+  loadingDiv.style.backdropFilter = 'blur(16px)';
+  loadingDiv.style.filter = 'blur(4px)';
+  document.body.appendChild(loadingDiv);
+});
 
 // currentLon & currentLat is in interaction.js
 window.addEventListener('DOMContentLoaded', () => {

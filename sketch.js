@@ -332,10 +332,25 @@ function startPlayback(fromOffset = 0) {
   source.onended = () => {
     stopPlayback();
     isPlaying = false;
+    audioEnded = true;
     if (isPaused) return;
     pauseTime = 0; // reset
-    if (playBtn) playBtn.textContent = 'RESTART';
-    if (playbackTimestamp) playbackTimestamp.textContent = '00:00';
+    // Change playBtn to restart mode
+    if (playBtn) {
+      playBtn.textContent = 'RESTART';
+      playBtn.style.pointerEvents = 'auto';
+      playBtn.onclick = function (e) {
+        e.preventDefault();
+        audioEnded = false;
+        playBtn.textContent = 'PAUSE';
+        startPlayback(0);
+        startPlaybackTimestamp(0);
+      };
+    }
+    // Hide pauseBtn
+    if (pauseBtn) pauseBtn.style.opacity = '0';
+    // Stop the timer
+    stopPlaybackTimestamp();
   };
 }
 
@@ -787,8 +802,7 @@ guestBtn.addEventListener('click', () => {
   pauseBtn.style.pointerEvents = 'auto';
 });
 
-// Space bar listener
-// Spacebar Play/Pause
+// Space bar and Fullscreen listener
 document.addEventListener('keydown', (e) => {
   // Avoid triggering if typing in an input
   const active = document.activeElement;
@@ -798,6 +812,35 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Space' || e.key === ' ') {
     e.preventDefault();
     togglePlayback();
+  }
+
+  // Fullscreen on 'F' key
+  if (e.key === 'f' || e.key === 'F') {
+    const docElm = document.documentElement;
+    if (!document.fullscreenElement) {
+      if (docElm.requestFullscreen) {
+        docElm.requestFullscreen();
+      } else if (docElm.mozRequestFullScreen) {
+        /* Firefox */
+        docElm.mozRequestFullScreen();
+      } else if (docElm.webkitRequestFullscreen) {
+        /* Chrome, Safari & Opera */
+        docElm.webkitRequestFullscreen();
+      } else if (docElm.msRequestFullscreen) {
+        /* IE/Edge */
+        docElm.msRequestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    }
   }
 });
 

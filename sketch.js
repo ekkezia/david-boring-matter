@@ -404,49 +404,79 @@ function startPlayback(fromOffset = 0) {
     // Stop the timer
     stopPlaybackTimestamp();
 
-    // Show credit overlay (always on top, robust blinking, not blocked)
+    // Show credit overlay (always on top, blinking, and with a fixed restart button)
     let credit = document.getElementById('credit-overlay');
-    if (credit) {
-      credit.remove();
-    }
+    if (credit) credit.remove();
     credit = document.createElement('div');
     credit.id = 'credit-overlay';
     credit.style.position = 'fixed';
-    credit.style.bottom = '10%';
-    credit.style.left = '50%';
-    credit.style.transform = 'translateX(-50%)';
-    credit.style.zIndex = '2147483647'; // max z-index
+    credit.style.top = '0';
+    credit.style.left = '0';
+    credit.style.width = '100vw';
+    credit.style.height = '100vh';
     credit.style.display = 'flex';
     credit.style.flexDirection = 'column';
     credit.style.alignItems = 'center';
     credit.style.justifyContent = 'center';
-    credit.style.pointerEvents = 'auto';
-    credit.style.userSelect = 'none';
-    credit.style.cursor = 'pointer';
+    credit.style.zIndex = '2147483647';
+    credit.style.pointerEvents = 'none';
+    credit.style.background = 'rgba(0,0,0,0)';
     credit.innerHTML = `
-      <span style=\"font-size:1.1rem;opacity:0.7;letter-spacing:1px;\">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
-      <span style=\"font-size:2.2rem;font-weight:700;line-height:1.2;\">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>
+      <div id="credit-blink" style="display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;">
+        <span style=\"font-size:1.1rem;opacity:0.7;letter-spacing:1px;\">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
+        <span style=\"font-size:2.2rem;font-weight:700;line-height:1.2;\">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>
+      </div>
     `;
     document.body.appendChild(credit);
-    // Robust blinking effect
+    // Blinking effect (same as loading)
+    const creditBlink = document.getElementById('credit-blink');
     let blink = true;
     let blinkInterval = setInterval(() => {
       if (!document.body.contains(credit)) {
         clearInterval(blinkInterval);
         return;
       }
-      credit.style.opacity = blink ? '1' : '0.2';
+      creditBlink.style.opacity = blink ? '1' : '0.2';
       blink = !blink;
     }, 600);
     // Hide on hover, show on mouseleave
-    credit.addEventListener('mouseenter', () => {
-      credit.style.display = 'none';
+    creditBlink.addEventListener('mouseenter', () => {
+      creditBlink.style.display = 'none';
     });
-    credit.addEventListener('mouseleave', () => {
-      credit.style.display = 'flex';
+    creditBlink.addEventListener('mouseleave', () => {
+      creditBlink.style.display = 'flex';
     });
-    // Remove interval if overlay is removed
-    credit._cleanup = () => clearInterval(blinkInterval);
+    // Add a fixed restart button under the credit
+    let creditRestart = document.getElementById('credit-restart-btn');
+    if (creditRestart) creditRestart.remove();
+    creditRestart = document.createElement('button');
+    creditRestart.id = 'credit-restart-btn';
+    creditRestart.textContent = 'RESTART';
+    creditRestart.style.position = 'fixed';
+    creditRestart.style.bottom = '8vh';
+    creditRestart.style.left = '50%';
+    creditRestart.style.transform = 'translateX(-50%)';
+    creditRestart.style.zIndex = '2147483648';
+    creditRestart.style.fontSize = '2rem';
+    creditRestart.style.padding = '0.7em 2em';
+    creditRestart.style.background = 'rgba(0,0,0,0.7)';
+    creditRestart.style.color = 'white';
+    creditRestart.style.border = 'none';
+    creditRestart.style.borderRadius = '1em';
+    creditRestart.style.cursor = 'pointer';
+    creditRestart.style.pointerEvents = 'auto';
+    creditRestart.style.fontFamily = 'inherit';
+    document.body.appendChild(creditRestart);
+    creditRestart.onclick = function (e) {
+      e.preventDefault();
+      // Remove credit overlay and restart button
+      if (credit) credit.remove();
+      if (creditRestart) creditRestart.remove();
+      audioEnded = false;
+      playBtn.textContent = 'PAUSE';
+      startPlayback(0);
+      startPlaybackTimestamp(0);
+    };
   };
 }
 

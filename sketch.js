@@ -389,10 +389,10 @@ function startPlayback(fromOffset = 0) {
       credit.style.left = '0';
       credit.style.width = '100vw';
       credit.style.height = '100vh';
-      credit.style.background = 'rgba(0,0,0,0.8)';
+      credit.style.background = 'rgba(0,0,0,0.4)';
       credit.style.color = 'white';
       credit.style.display = 'flex';
-      credit.style.flexDirection = 'flex-col';
+      credit.style.flexDirection = 'column';
       credit.style.alignItems = 'center';
       credit.style.justifyContent = 'center';
       credit.style.fontSize = '6rem';
@@ -411,7 +411,7 @@ function startPlayback(fromOffset = 0) {
         if (!credit) return;
         credit.style.opacity = blink ? '1' : '0.2';
         blink = !blink;
-      }, 600);
+      }, 2000);
       // Hide on hover
       credit.addEventListener('mouseenter', () => {
         credit.style.display = 'none';

@@ -477,10 +477,12 @@ function pausePlayback() {
     playBtn.textContent = 'PLAY';
     playBtn.style.opacity = '1';
     playBtn.style.pointerEvents = 'auto';
+    playBtn.style.zIndex = '16';
   }
   if (pauseBtn) {
     pauseBtn.style.opacity = '0';
     pauseBtn.style.pointerEvents = 'none';
+    pauseBtn.style.zIndex = '15';
   }
 }
 
@@ -812,15 +814,8 @@ function startPlaybackTimestamp(offset = 0) {
         credit.style.flexDirection = 'flex-col';
         credit.innerHTML = `
           <span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;text-align:center;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
-          <span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>
+          <a href="https://e-kezia.com" target="_blank"><span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span></a>
         `;
-        // Blinking effect
-        let blink = true;
-        let blinkInterval = setInterval(() => {
-          if (!credit) return;
-          credit.style.opacity = blink ? '1' : '0.2';
-          blink = !blink;
-        }, 500);
         // Hide on hover
         credit.addEventListener('mouseenter', () => {
           credit.style.display = 'none';
@@ -828,8 +823,6 @@ function startPlaybackTimestamp(offset = 0) {
         credit.addEventListener('mouseleave', () => {
           credit.style.display = 'flex';
         });
-        // Remove interval if overlay is removed
-        credit._cleanup = () => clearInterval(blinkInterval);
         document.body.appendChild(credit);
       }
       // Show restart button styled like AUTOPILOT, replace timer
@@ -923,10 +916,14 @@ function showPlayOnHover() {
     }
   });
   playBtn.addEventListener('mouseleave', () => {
-    playBtn.style.opacity = '0';
-    pauseBtn.style.opacity = '0';
+    if (!isPlaying && !audioEnded) {
+      playBtn.style.opacity = '1';
+      pauseBtn.style.opacity = '0';
+    } else {
+      playBtn.style.opacity = '0';
+      pauseBtn.style.opacity = '0';
+    }
   });
-
   pauseBtn.style.zIndex = '15';
   playBtn.style.zIndex = '16';
 }

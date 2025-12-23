@@ -398,12 +398,12 @@ function startPlayback(fromOffset = 0) {
       credit.style.fontSize = '6rem';
       credit.style.zIndex = '999';
       credit.style.backdropFilter = 'blur(16px)';
-      credit.style.filter = 'blur(0px)';
+      credit.style.filter = 'blur(2px)';
       credit.style.userSelect = 'none';
       credit.style.cursor = 'pointer';
       credit.innerHTML = `
         <span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;text-align:center;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
-        <span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span>
+        <a href="https://e-kezia.com" target="_blank"><span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span></a>
       `;
       // Blinking effect
       let blink = true;

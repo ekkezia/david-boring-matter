@@ -392,6 +392,7 @@ function startPlayback(fromOffset = 0) {
       credit.style.background = 'rgba(0,0,0,0.8)';
       credit.style.color = 'white';
       credit.style.display = 'flex';
+      credit.style.flexDirection = 'flex-col';
       credit.style.alignItems = 'center';
       credit.style.justifyContent = 'center';
       credit.style.fontSize = '6rem';

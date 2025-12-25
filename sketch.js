@@ -536,6 +536,8 @@ function stopPlayback() {
 // ---- USER LOCATION
 let currentLon = -74.006; // Initial longitude (New York City)
 let currentLat = 40.7128; // Initial latitude
+let startLon = null;
+let startLat = null;
 // --- USER LOCATION (LATITUDE & LONGITUDE) ---
 const locDiv = document.createElement('div');
 locDiv.id = 'location-display';
@@ -557,8 +559,10 @@ function showUserLocation() {
         // update global lat & lon
         currentLat = lat;
         currentLon = lon;
+        // Save original starting point
+        startLat = lat;
+        startLon = lon;
         console.log(`User location: Latitude ${lat}, Longitude ${lon}`);
-        // Optionally display on page
         locDiv.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
       },
       (error) => {
@@ -569,6 +573,21 @@ function showUserLocation() {
     console.error('Geolocation is not supported by this browser.');
   }
 }
+
+// Update location display to follow map camera position
+function updateLocationDisplayFromCamera() {
+  if (viewer && viewer.camera) {
+    const carto = Cesium.Cartographic.fromCartesian(viewer.camera.position);
+    if (carto) {
+      const lat = Cesium.Math.toDegrees(carto.latitude);
+      const lon = Cesium.Math.toDegrees(carto.longitude);
+      locDiv.textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    }
+  }
+}
+
+// Start interval to update location display
+setInterval(updateLocationDisplayFromCamera, 500);
 
 // Call location function on page load
 document.addEventListener('DOMContentLoaded', showUserLocation);

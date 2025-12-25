@@ -1,3 +1,4 @@
+// ...existing code...
 // Map & Audio, Cesium
 
 import { defaultServer } from './config.js';
@@ -230,7 +231,7 @@ function tryStartExperience() {
   if (audioReady && mapReady) {
     const loadingDiv = document.getElementById('audio-loading');
     if (loadingDiv) loadingDiv.remove();
-    showPlayOnHover(); // your function to start playback/interaction
+    showPlayOnHover(); // Handler is now attached only once after playBtn is defined
   }
 }
 
@@ -256,10 +257,10 @@ let isPlaying = false;
 let isPaused = false;
 let audioEnded = false;
 let restartBtn;
-const DEBUG = true; // Set to false to hide scrubber
+const SHOW_SCRUBBER = false; // Set to true to show scrubber
 let scrubber;
 // Debug-only scrubber
-if (DEBUG) {
+if (SHOW_SCRUBBER) {
   scrubber = document.createElement('input');
   scrubber.type = 'range';
   scrubber.min = 0;
@@ -277,9 +278,17 @@ if (DEBUG) {
     if (audioBuffer && audioCtx) {
       const percent = parseFloat(scrubber.value) / 100;
       const seekTime = percent * audioBuffer.duration;
-      stopPlayback();
-      startPlayback(seekTime);
-      startPlaybackTimestamp(seekTime);
+      // Only jump to credit if seekTime >= audioBuffer.duration
+      if (seekTime >= audioBuffer.duration) {
+        stopPlayback();
+        startPlayback(audioBuffer.duration);
+        startPlaybackTimestamp(audioBuffer.duration);
+      } else {
+        stopPlayback();
+        startPlayback(seekTime);
+        startPlaybackTimestamp(seekTime);
+        audioEnded = false;
+      }
     }
   });
 }
@@ -379,7 +388,7 @@ function startPlayback(fromOffset = 0) {
     const cesiumContainer = document.getElementById('cesiumContainer');
     if (cesiumContainer) cesiumContainer.style.display = 'none';
 
-    // Show credit overlay
+    // Show credit overlay with fade-in and animated blur
     let credit = document.getElementById('credit-overlay');
     if (!credit) {
       credit = document.createElement('div');
@@ -389,7 +398,7 @@ function startPlayback(fromOffset = 0) {
       credit.style.left = '0';
       credit.style.width = '100vw';
       credit.style.height = '100vh';
-      credit.style.background = 'rgba(0,0,0,0.4)';
+      credit.style.background = 'rgba(0,0,0,0.8)';
       credit.style.color = 'white';
       credit.style.display = 'flex';
       credit.style.flexDirection = 'column';
@@ -397,31 +406,31 @@ function startPlayback(fromOffset = 0) {
       credit.style.justifyContent = 'center';
       credit.style.fontSize = '6rem';
       credit.style.zIndex = '999';
-      credit.style.backdropFilter = 'blur(16px)';
-      credit.style.filter = 'blur(2px)';
+      credit.style.backdropFilter = 'blur(0px)';
+      credit.style.filter = 'blur(0px)';
       credit.style.userSelect = 'none';
       credit.style.cursor = 'pointer';
+      credit.style.opacity = '0';
+      credit.style.transition =
+        'opacity 1.2s cubic-bezier(.4,0,.2,1), filter 0.7s cubic-bezier(.4,0,.2,1)';
       credit.innerHTML = `
         <span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;text-align:center;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
-        <a href="https://e-kezia.com" target="_blank"><span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span></a>
+        <a href="https://e-kezia.com" target="_blank"><span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">@EKEZIA</span></a>
       `;
-      // Blinking effect
-      let blink = true;
-      let blinkInterval = setInterval(() => {
-        if (!credit) return;
-        credit.style.opacity = blink ? '1' : '0.2';
-        blink = !blink;
-      }, 2000);
-      // Hide on hover
-      credit.addEventListener('mouseenter', () => {
-        credit.style.display = 'none';
-      });
-      credit.addEventListener('mouseleave', () => {
-        credit.style.display = 'flex';
-      });
-      // Remove interval if overlay is removed
-      credit._cleanup = () => clearInterval(blinkInterval);
       document.body.appendChild(credit);
+      setTimeout(() => {
+        credit.style.opacity = '1';
+      }, 50);
+      // Animate blur from 0px to 4px and loop
+      let blurVal = 0;
+      let blurDir = 1;
+      credit._blurInterval = setInterval(() => {
+        blurVal += blurDir * 0.2;
+        if (blurVal >= 4) blurDir = -1;
+        if (blurVal <= 0) blurDir = 1;
+        credit.style.filter = `blur(${blurVal}px)`;
+      }, 50);
+      credit._cleanup = () => clearInterval(credit._blurInterval);
     }
 
     // Show restart button styled like AUTOPILOT, replace timer
@@ -474,10 +483,14 @@ function pausePlayback() {
   pauseTime = audioCtx.currentTime - startTime; // save current position
   isPlaying = false;
   if (playBtn) {
-    playBtn.textContent = 'PLAY';
+    playBtn.textContent = '▶︎ PLAY';
     playBtn.style.opacity = '1';
     playBtn.style.pointerEvents = 'auto';
     playBtn.style.zIndex = '16';
+    // Defensive: always ensure visible after pause
+    setTimeout(() => {
+      playBtn.style.opacity = '1';
+    }, 10);
   }
   if (pauseBtn) {
     pauseBtn.style.opacity = '0';
@@ -510,6 +523,13 @@ function stopPlayback() {
     source = null; // Reset source so playback can be started again
   }
   clearInterval(interval);
+  // Defensive: always ensure playBtn is visible after stop
+  if (playBtn) {
+    playBtn.textContent = '▶︎ PLAY';
+    playBtn.style.opacity = '1';
+    playBtn.style.pointerEvents = 'auto';
+    playBtn.style.zIndex = '16';
+  }
   console.log('Playback stopped');
 }
 
@@ -789,7 +809,7 @@ function startPlaybackTimestamp(offset = 0) {
     if (audioBuffer && elapsed >= audioBuffer.duration && !audioEnded) {
       audioEnded = true;
       if (typeof source !== 'undefined') stopPlayback();
-      // Show credit overlay and restart button
+      // Show credit overlay and restart button (single implementation)
       let credit = document.getElementById('credit-overlay');
       if (!credit) {
         credit = document.createElement('div');
@@ -799,30 +819,22 @@ function startPlaybackTimestamp(offset = 0) {
         credit.style.left = '0';
         credit.style.width = '100vw';
         credit.style.height = '100vh';
-        credit.style.background = 'rgba(0,0,0,0.4)';
+        credit.style.background = 'rgba(0,0,0,0.8)';
         credit.style.color = 'white';
         credit.style.display = 'flex';
+        credit.style.flexDirection = 'column';
         credit.style.alignItems = 'center';
         credit.style.justifyContent = 'center';
         credit.style.fontSize = '6rem';
         credit.style.zIndex = '999';
-        credit.style.backdropFilter = 'blur(20px)';
+        credit.style.backdropFilter = 'blur(16px)';
         credit.style.filter = 'blur(2px)';
         credit.style.userSelect = 'none';
         credit.style.cursor = 'pointer';
-        credit.style.display = 'flex';
-        credit.style.flexDirection = 'flex-col';
         credit.innerHTML = `
           <span style="font-size:1.1rem;opacity:0.7;letter-spacing:1px;text-align:center;">CREATIVE DIRECTION & WEBSITE DEVELOPMENT BY</span>
-          <a href="https://e-kezia.com" target="_blank"><span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">ELIZABETH KEZIA WIDJAJA<br/>@EKEZIA</span></a>
+          <a href="https://e-kezia.com" target="_blank"><span style="font-size:2.2rem;font-weight:700;line-height:1.2;text-align:center;">@EKEZIA</span></a>
         `;
-        // Hide on hover
-        credit.addEventListener('mouseenter', () => {
-          credit.style.display = 'none';
-        });
-        credit.addEventListener('mouseleave', () => {
-          credit.style.display = 'flex';
-        });
         document.body.appendChild(credit);
       }
       // Show restart button styled like AUTOPILOT, replace timer
@@ -835,24 +847,10 @@ function startPlaybackTimestamp(offset = 0) {
         restartBtn.style.bottom = '30px';
         restartBtn.style.transform = 'translateX(-50%)';
         restartBtn.style.zIndex = 10001;
-        restartBtn.style.fontFamily = 'Wallpoet, sans-serif';
-        restartBtn.style.fontSize = '1.2rem';
-        restartBtn.style.padding = '12px 32px';
-        restartBtn.style.background = '#fff';
-        restartBtn.style.color = '#000';
-        restartBtn.style.border = 'none';
-        restartBtn.style.borderRadius = '8px';
-        restartBtn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+        restartBtn.style.boxShadow =
+          '0 4px 24px 0 rgba(255,255,255,0.25), 0 2px 8px rgba(0,0,0,0.2)';
         restartBtn.style.cursor = 'pointer';
         restartBtn.style.transition = 'background 0.2s, color 0.2s';
-        restartBtn.addEventListener('mouseenter', () => {
-          restartBtn.style.background = '#000';
-          restartBtn.style.color = '#fff';
-        });
-        restartBtn.addEventListener('mouseleave', () => {
-          restartBtn.style.background = '#fff';
-          restartBtn.style.color = '#000';
-        });
         restartBtn.onclick = () => {
           // Remove credit overlay
           if (credit && credit.parentNode) {
@@ -861,6 +859,8 @@ function startPlaybackTimestamp(offset = 0) {
           }
           // Hide restart button
           restartBtn.style.display = 'none';
+          // Restore background to original state
+          document.body.style.background = '';
           // Show play/pause and timer again
           if (playBtn) {
             playBtn.style.opacity = '1';
@@ -871,6 +871,9 @@ function startPlaybackTimestamp(offset = 0) {
             pauseBtn.style.pointerEvents = 'auto';
           }
           if (playbackTimestamp) playbackTimestamp.style.display = 'flex';
+          // Show the map again
+          const cesiumContainer = document.getElementById('cesiumContainer');
+          if (cesiumContainer) cesiumContainer.style.display = '';
           // Restart audio
           audioEnded = false;
           startPlayback(0);
@@ -907,25 +910,13 @@ function stopPlaybackTimestamp() {
 
 function showPlayOnHover() {
   playBtn.addEventListener('mouseenter', () => {
-    if (isPlaying && !audioEnded) {
-      pauseBtn.style.opacity = '1';
-      playBtn.style.opacity = '0';
-    } else if (!isPlaying && !audioEnded) {
-      playBtn.style.opacity = '1';
-      pauseBtn.style.opacity = '0';
-    }
+    playBtn.style.opacity = '1';
   });
   playBtn.addEventListener('mouseleave', () => {
-    if (!isPlaying && !audioEnded) {
-      playBtn.style.opacity = '1';
-      pauseBtn.style.opacity = '0';
-    } else {
-      playBtn.style.opacity = '0';
-      pauseBtn.style.opacity = '0';
-    }
+    playBtn.style.opacity = '0';
   });
-  pauseBtn.style.zIndex = '15';
   playBtn.style.zIndex = '16';
+  pauseBtn.style.zIndex = '15';
 }
 
 // Show pause button only on hover
@@ -938,30 +929,6 @@ function showPauseOnHover() {
   });
   pauseBtn.style.zIndex = '16';
   playBtn.style.zIndex = '15';
-}
-
-// Create restart button
-function createRestartBtn() {
-  if (!restartBtn) {
-    restartBtn = document.createElement('button');
-    restartBtn.id = 'restartBtn';
-    restartBtn.className = 'wallpoet-regular';
-    restartBtn.textContent = '⟲ RESTART';
-    restartBtn.style.position = 'fixed';
-    restartBtn.style.top = '50%';
-    restartBtn.style.left = '50%';
-    restartBtn.style.transform = 'translate(-50%, -50%)';
-    restartBtn.style.zIndex = '13';
-    restartBtn.style.display = 'block';
-    controls[0].appendChild(restartBtn);
-    restartBtn.addEventListener('click', () => {
-      showPlayButton();
-      audioEnded = false;
-      document.dispatchEvent(new CustomEvent('restart-clicked'));
-    });
-  } else {
-    restartBtn.style.display = 'block';
-  }
 }
 
 // Click Listener
@@ -1009,7 +976,7 @@ pauseBtn.addEventListener('click', function (e) {
 
   // fade out play button & hide
   document.getElementById('pauseBtn').style.opacity = '0';
-  showPlayOnHover();
+  showPlayOnHover(); // Handler is now attached only once after playBtn is defined
   pausePlayback(pauseTime);
   pausePlaybackTimestamp(pauseTime);
 });
@@ -1045,7 +1012,6 @@ guestBtn.addEventListener('click', () => {
 
   // Immediately start playback in guest mode
   if (typeof startPlayback === 'function') {
-    playBtn.textContent = 'PAUSE';
     startPlayback(0);
     startPlaybackTimestamp(0);
     isPlaying = true;

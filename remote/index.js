@@ -12,11 +12,22 @@ import { isMobile } from '../utils.js';
   let status = null;
   let gyroEnabled = false;
 
+  // Always create gyroBtn first so it exists for display logic
+  let gyroBtn = document.createElement('button');
+  gyroBtn.textContent = 'Enable Gyro';
+  gyroBtn.style.transform = 'translateX(-50%)';
+  gyroBtn.style.left = '50%';
+  gyroBtn.style.width = 'fit-content';
+  gyroBtn.style.border = '1px solid rgba(255,255,255,1)';
+  gyroBtn.style.position = 'relative';
+  gyroBtn.style.zIndex = 9999;
+  gyroBtn.style.display = 'block';
+  document.body.appendChild(gyroBtn);
+
   const guestPanelEl = document.getElementById('guest-panel');
   const roomInputContainerEl = document.getElementById('room-input-container');
   const gyroDependentEls = [];
   let gyroNotice = null;
-  let gyroBtn = null;
 
   if (guestPanelEl) {
     const existingParagraphs = guestPanelEl.querySelectorAll('p');
@@ -289,19 +300,8 @@ import { isMobile } from '../utils.js';
     socket.emit('join-room', code, 'remote');
   });
 
-  gyroBtn = document.createElement('button');
-  gyroBtn.textContent = 'Enable Gyro';
-  gyroBtn.style.transform = 'translateX(-50%)';
-  gyroBtn.style.left = '50%';
-  gyroBtn.style.width = 'fit-content';
-  gyroBtn.style.border = '1px solid rgba(255,255,255,1)';
-  gyroBtn.style.position = 'relative';
-  gyroBtn.style.zIndex = 9999;
-  gyroBtn.style.display = 'block';
-  document.body.appendChild(gyroBtn);
-
   gyroBtn.addEventListener('click', async () => {
     const ok = await enableCompass();
-    if (ok) gyroBtn.style.display = 'block';
+    if (ok) gyroBtn.style.display = 'none'; //
   });
 })();

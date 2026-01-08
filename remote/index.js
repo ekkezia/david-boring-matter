@@ -29,6 +29,20 @@ import { isMobile } from '../utils.js';
     gyroNotice.style.color = '#ffffff';
     gyroNotice.style.textAlign = 'center';
     guestPanelEl.insertBefore(gyroNotice, guestPanelEl.firstChild);
+
+    // If gyro is already enabled, show notice and room input immediately
+    if (
+      window.DeviceOrientationEvent &&
+      typeof DeviceOrientationEvent.requestPermission !== 'function'
+    ) {
+      // Most browsers: if event exists and no permission required, assume enabled
+      toggleRoomInputAvailability(true);
+      if (gyroBtn) gyroBtn.style.display = 'none';
+    } else if (window.gyroEnabled) {
+      // If global gyroEnabled is set (should be false at first, true after enable)
+      toggleRoomInputAvailability(true);
+      if (gyroBtn) gyroBtn.style.display = 'none';
+    }
   }
 
   function toggleRoomInputAvailability(enabled) {
@@ -198,7 +212,8 @@ import { isMobile } from '../utils.js';
     window.addEventListener('deviceorientation', handleOrientation, true);
     gyroEnabled = true;
     toggleRoomInputAvailability(true);
-    if (gyroBtn) gyroBtn.style.display = 'none';
+    // Only hide the button if gyro is truly enabled
+    if (gyroBtn && gyroEnabled) gyroBtn.style.display = 'none';
     return true;
   }
 

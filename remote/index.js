@@ -36,10 +36,10 @@ import { isMobile } from '../utils.js';
       typeof DeviceOrientationEvent.requestPermission !== 'function';
     if (gyroPermissionNotRequired) {
       toggleRoomInputAvailability(true);
-      if (gyroBtn) gyroBtn.style.display = 'none';
+      // if (gyroBtn) gyroBtn.style.display = 'none';
     } else if (window.gyroEnabled) {
       toggleRoomInputAvailability(true);
-      if (gyroBtn) gyroBtn.style.display = 'none';
+      // if (gyroBtn) gyroBtn.style.display = 'none';
     } else {
       if (gyroBtn) gyroBtn.style.display = 'block';
     }
@@ -213,7 +213,7 @@ import { isMobile } from '../utils.js';
     gyroEnabled = true;
     toggleRoomInputAvailability(true);
     // Only hide the button if gyro is truly enabled
-    if (gyroBtn && gyroEnabled) gyroBtn.style.display = 'none';
+    // if (gyroBtn && gyroEnabled) gyroBtn.style.display = 'none';
     return true;
   }
 
@@ -302,6 +302,6 @@ import { isMobile } from '../utils.js';
 
   gyroBtn.addEventListener('click', async () => {
     const ok = await enableCompass();
-    if (ok) gyroBtn.style.display = 'none';
+    if (ok) gyroBtn.style.display = 'block';
   });
 })();

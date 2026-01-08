@@ -23,7 +23,7 @@ import { isMobile } from '../utils.js';
     existingParagraphs.forEach((el) => gyroDependentEls.push(el));
 
     gyroNotice = document.createElement('p');
-    gyroNotice.innerHTML = `You have decided to use your mobile device as a remote. Gyroscope access is required to use your mobile device as a controller for [MACHINE #4] music video.<br /><br />Tap "Enable Gyro" to continue.`;
+    gyroNotice.innerHTML = `You have decided to use your mobile device as a remote. Gyroscope access is required to use your mobile device as a controller for [MACHINE #4] music video.<br /><br />Tap "Enable Gyro" to continuee.`;
     gyroNotice.style.margin = '0 0 8px 0';
     gyroNotice.style.fontSize = '1.2rem';
     gyroNotice.style.color = '#ffffff';

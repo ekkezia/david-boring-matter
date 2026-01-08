@@ -543,6 +543,8 @@ function startPlayback(fromOffset = 0) {
     } else {
       deltaInfoUI.innerText = amplitude;
       currentLat += speed * 2;
+
+      if (!isGuest) showPlayOnHover();
     }
 
     // console.log(

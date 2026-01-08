@@ -74,9 +74,17 @@ import { isMobile } from '../utils.js';
   // --- GYRO ARROW UI ---
   // === Compass that rotates with gyroscope ===
 
-  // create the compass container
+  // create a centering wrapper for the compass
+  const compassCenterWrapper = document.createElement('div');
+  compassCenterWrapper.style.position = 'absolute';
+  compassCenterWrapper.style.left = '50%';
+  compassCenterWrapper.style.top = '10%';
+  compassCenterWrapper.style.transform = 'translateX(-50%)';
+  compassCenterWrapper.style.display = 'none';
+  compassCenterWrapper.style.zIndex = 1000;
+
+  // create the compass container (rotated)
   const compassWrapper = document.createElement('div');
-  compassWrapper.style.position = 'relative';
   compassWrapper.style.width = '80vw';
   compassWrapper.style.height = '80vw';
   compassWrapper.style.border = '2px solid #fff';
@@ -84,12 +92,15 @@ import { isMobile } from '../utils.js';
   compassWrapper.style.display = 'flex';
   compassWrapper.style.alignItems = 'center';
   compassWrapper.style.justifyContent = 'center';
-  compassWrapper.style.marginLeft = '10px';
   compassWrapper.style.transition = 'transform 0.1s linear';
   compassWrapper.style.transformOrigin = 'center center';
   compassWrapper.style.userSelect = 'none';
   compassWrapper.style.pointerEvents = 'none';
-  compassWrapper.style.display = 'none';
+
+  compassCenterWrapper.appendChild(compassWrapper);
+  document.body.append(compassCenterWrapper);
+  compassCenterWrapper.style.display = 'block';
+  compassWrapper.style.transform = `rotate(${-processedUnit}deg)`;
 
   // add the arrow (▲)
   const arrow = document.createElement('div');

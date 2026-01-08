@@ -30,18 +30,18 @@ import { isMobile } from '../utils.js';
     gyroNotice.style.textAlign = 'center';
     guestPanelEl.insertBefore(gyroNotice, guestPanelEl.firstChild);
 
-    // If gyro is already enabled, show notice and room input immediately
-    if (
+    // If gyro is already enabled, show notice and room input immediately, else show gyroBtn
+    let gyroPermissionNotRequired =
       window.DeviceOrientationEvent &&
-      typeof DeviceOrientationEvent.requestPermission !== 'function'
-    ) {
-      // Most browsers: if event exists and no permission required, assume enabled
+      typeof DeviceOrientationEvent.requestPermission !== 'function';
+    if (gyroPermissionNotRequired) {
       toggleRoomInputAvailability(true);
       if (gyroBtn) gyroBtn.style.display = 'none';
     } else if (window.gyroEnabled) {
-      // If global gyroEnabled is set (should be false at first, true after enable)
       toggleRoomInputAvailability(true);
       if (gyroBtn) gyroBtn.style.display = 'none';
+    } else {
+      if (gyroBtn) gyroBtn.style.display = 'block';
     }
   }
 
@@ -297,6 +297,7 @@ import { isMobile } from '../utils.js';
   gyroBtn.style.border = '1px solid rgba(255,255,255,1)';
   gyroBtn.style.position = 'relative';
   gyroBtn.style.zIndex = 9999;
+  gyroBtn.style.display = 'block';
   document.body.appendChild(gyroBtn);
 
   gyroBtn.addEventListener('click', async () => {

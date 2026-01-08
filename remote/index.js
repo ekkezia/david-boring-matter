@@ -2,6 +2,24 @@ import { defaultServer } from '../config.js';
 import { isMobile } from '../utils.js';
 
 (function () {
+  // Add a test button to verify click/alert works at all
+  const debugBtn = document.createElement('button');
+  debugBtn.textContent = 'DEBUG BUTTON';
+  debugBtn.style.position = 'fixed';
+  debugBtn.style.top = '60%';
+  debugBtn.style.left = '50%';
+  debugBtn.style.transform = 'translateX(-50%, 0)';
+  debugBtn.style.zIndex = 100000;
+  debugBtn.style.background = '#c00';
+  debugBtn.style.color = '#fff';
+  debugBtn.style.padding = '18px 36px';
+  debugBtn.style.fontSize = '1.2rem';
+  debugBtn.style.borderRadius = '10px';
+  debugBtn.style.border = '2px solid #fff';
+  debugBtn.style.boxShadow = '0 4px 32px 0 rgba(0,0,0,0.25)';
+  debugBtn.style.cursor = 'pointer';
+  debugBtn.onclick = () => alert('DEBUG BUTTON CLICKED');
+  document.body.appendChild(debugBtn);
   // redirect to /  if on desktop device
   if (!isMobile) {
     const currentUrl = new URL(window.location.href);

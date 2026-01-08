@@ -62,10 +62,10 @@ import { isMobile } from '../utils.js';
       typeof DeviceOrientationEvent.requestPermission !== 'function';
     if (gyroPermissionNotRequired) {
       toggleRoomInputAvailability(true);
-      // if (gyroBtn) gyroBtn.style.display = 'none';
+      if (gyroBtn) gyroBtn.style.display = 'none';
     } else if (window.gyroEnabled) {
       toggleRoomInputAvailability(true);
-      // if (gyroBtn) gyroBtn.style.display = 'none';
+      if (gyroBtn) gyroBtn.style.display = 'none';
     } else {
       if (gyroBtn) gyroBtn.style.display = 'block';
     }

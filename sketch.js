@@ -1193,7 +1193,6 @@ document.addEventListener('restart-clicked', function () {
   if (restartBtn) restartBtn.style.display = 'none';
   isPlaying = false;
   isPaused = false;
-  showPlayButton();
   setInfoUIVisibility(false);
 });
 

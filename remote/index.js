@@ -99,7 +99,7 @@ import { isMobile } from '../utils.js';
 
   compassCenterWrapper.appendChild(compassWrapper);
   document.body.append(compassCenterWrapper);
-  compassCenterWrapper.style.display = 'block';
+  compassCenterWrapper.style.display = 'none';
   compassWrapper.style.transform = `rotate(${-processedUnit}deg)`;
 
   // add the arrow (▲)
@@ -257,6 +257,7 @@ import { isMobile } from '../utils.js';
       setTimeout(() => {
         if (guestPanelEl) guestPanelEl.style.display = 'none';
         compassWrapper.style.display = 'block';
+        compassCenterWrapper.style.display = 'block';
       }, 1000);
     } else alert('Wrong room code.');
   });

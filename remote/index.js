@@ -41,21 +41,6 @@ import { isMobile } from '../utils.js';
     gyroNotice.style.textAlign = 'center';
     guestPanelEl.insertBefore(gyroNotice, guestPanelEl.firstChild);
 
-    // Add a test button after the gyro notice
-    const testBtn = document.createElement('button');
-    testBtn.textContent = 'TEST BUTTON';
-    testBtn.style.margin = '12px auto';
-    testBtn.style.display = 'block';
-    testBtn.style.fontSize = '1.1rem';
-    testBtn.style.padding = '8px 18px';
-    testBtn.style.background = '#222';
-    testBtn.style.color = '#fff';
-    testBtn.style.border = '1px solid #fff';
-    testBtn.style.borderRadius = '8px';
-    testBtn.style.cursor = 'pointer';
-    testBtn.onclick = () => alert('Test button clicked!');
-    guestPanelEl.insertBefore(testBtn, gyroNotice.nextSibling);
-
     // If gyro is already enabled, show notice and room input immediately, else show gyroBtn
     let gyroPermissionNotRequired =
       window.DeviceOrientationEvent &&
@@ -210,7 +195,10 @@ import { isMobile } from '../utils.js';
 
   // request permission if needed (for iOS)
   async function enableCompass() {
-    if (gyroEnabled) return true;
+    if (gyroEnabled) {
+      alert('Gyro already enabled, skipping permission.');
+      return true;
+    }
 
     let ok = true;
 
@@ -219,19 +207,22 @@ import { isMobile } from '../utils.js';
         typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function'
       ) {
+        alert('Requesting DeviceOrientationEvent permission...');
         ok = (await DeviceOrientationEvent.requestPermission()) === 'granted';
+        alert('Permission result: ' + ok);
+      } else {
+        alert('No DeviceOrientationEvent.requestPermission; assuming permission not required.');
       }
     } catch (err) {
       ok = false;
-      console.warn('Compass permission request failed', err);
+      alert('Compass permission request failed: ' + (err && err.message ? err.message : err));
     }
 
     if (!ok) {
       if (gyroNotice) {
         gyroNotice.textContent = 'Gyro is required. Permission denied.';
       }
-      alert('Gyroscope access is required.');
-      console.warn('Compass permission denied');
+      alert('Gyroscope access is required. (Permission denied)');
       return false;
     }
 
@@ -239,7 +230,8 @@ import { isMobile } from '../utils.js';
     gyroEnabled = true;
     toggleRoomInputAvailability(true);
     // Only hide the button if gyro is truly enabled
-    // if (gyroBtn && gyroEnabled) gyroBtn.style.display = 'none';
+    if (gyroBtn && gyroEnabled) gyroBtn.style.display = 'none';
+    alert('Gyro enabled and event listener added.');
     return true;
   }
 

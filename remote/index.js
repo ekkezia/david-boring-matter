@@ -41,6 +41,21 @@ import { isMobile } from '../utils.js';
     gyroNotice.style.textAlign = 'center';
     guestPanelEl.insertBefore(gyroNotice, guestPanelEl.firstChild);
 
+    // Add a test button after the gyro notice
+    const testBtn = document.createElement('button');
+    testBtn.textContent = 'TEST BUTTON';
+    testBtn.style.margin = '12px auto';
+    testBtn.style.display = 'block';
+    testBtn.style.fontSize = '1.1rem';
+    testBtn.style.padding = '8px 18px';
+    testBtn.style.background = '#222';
+    testBtn.style.color = '#fff';
+    testBtn.style.border = '1px solid #fff';
+    testBtn.style.borderRadius = '8px';
+    testBtn.style.cursor = 'pointer';
+    testBtn.onclick = () => alert('Test button clicked!');
+    guestPanelEl.insertBefore(testBtn, gyroNotice.nextSibling);
+
     // If gyro is already enabled, show notice and room input immediately, else show gyroBtn
     let gyroPermissionNotRequired =
       window.DeviceOrientationEvent &&

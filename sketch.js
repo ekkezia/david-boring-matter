@@ -490,68 +490,62 @@ function startPlayback(fromOffset = 0) {
           },
         });
       }
-
-      // Show lyrics (active line only)
-      if (lyricsContainer && lyricsRanges) {
-        const elapsed = audioCtx.currentTime - startTime;
-        // Find active index (linear scan is fine for small list)
-        let activeIndex = -1;
-        for (let i = 0; i < lyricsRanges.length; i++) {
-          const r = lyricsRanges[i];
-          if (elapsed >= r.start && elapsed < r.end) {
-            activeIndex = i;
-            break;
-          }
-        }
-        if (activeIndex !== lastLyricsIndex) {
-          lastLyricsIndex = activeIndex;
-          // Always clear container when index changes (including when no lyric is active)
-          lyricsContainer.innerHTML = '';
-          if (activeIndex >= 0) {
-            const text = lyricsRanges[activeIndex].text;
-            const lyricSpan = document.createElement('span');
-            lyricSpan.textContent = text;
-            lyricSpan.style.color = 'white';
-            lyricSpan.style.fontSize = '4rem';
-            lyricSpan.style.fontWeight = 'bold';
-            lyricSpan.style.whiteSpace = 'nowrap';
-            lyricSpan.style.filter = 'blur(2px)';
-            lyricSpan.style.textAlign = 'center';
-            lyricSpan.style.opacity = '0.9';
-            lyricSpan.style.position = 'absolute';
-            // Constrain position so text is always fully visible
-            const margin = 60;
-            lyricsContainer.appendChild(lyricSpan); // temporarily add to measure size
-            const spanRect = lyricSpan.getBoundingClientRect();
-            lyricsContainer.removeChild(lyricSpan);
-            const maxX = window.innerWidth - margin - spanRect.width;
-            const maxY = window.innerHeight - margin - spanRect.height;
-            const minX = margin;
-            const minY = margin;
-            const randX = Math.floor(Math.random() * (maxX - minX + 1)) + minX;
-            const randY = Math.floor(Math.random() * (maxY - minY + 1)) + minY;
-            lyricSpan.style.left = randX + 'px';
-            lyricSpan.style.top = randY + 'px';
-            lyricsContainer.style.position = 'fixed'; // ensure container is positioned
-            lyricsContainer.style.justifyContent = '';
-            lyricsContainer.style.alignItems = '';
-            lyricsContainer.style.flexDirection = '';
-            lyricsContainer.appendChild(lyricSpan);
-          }
-        }
-      }
     } else {
       deltaInfoUI.innerText = amplitude;
       currentLat += speed * 2;
-
-      if (!isGuest) showPlayOnHover();
     }
 
-    // console.log(
-    //   `→ Moving north | Lon: ${currentLon.toFixed(
-    //     6,
-    //   )} | Lat: ${currentLat.toFixed(6)}`,
-    // );
+    if (!isGuest) showPlayOnHover();
+
+    // Show lyrics (active line only)
+    if (lyricsContainer && lyricsRanges) {
+      const elapsed = audioCtx.currentTime - startTime;
+      // Find active index (linear scan is fine for small list)
+      let activeIndex = -1;
+      for (let i = 0; i < lyricsRanges.length; i++) {
+        const r = lyricsRanges[i];
+        if (elapsed >= r.start && elapsed < r.end) {
+          activeIndex = i;
+          break;
+        }
+      }
+      if (activeIndex !== lastLyricsIndex) {
+        lastLyricsIndex = activeIndex;
+        // Always clear container when index changes (including when no lyric is active)
+        lyricsContainer.innerHTML = '';
+        if (activeIndex >= 0) {
+          const text = lyricsRanges[activeIndex].text;
+          const lyricSpan = document.createElement('span');
+          lyricSpan.textContent = text;
+          lyricSpan.style.color = 'white';
+          lyricSpan.style.fontSize = '4rem';
+          lyricSpan.style.fontWeight = 'bold';
+          lyricSpan.style.whiteSpace = 'nowrap';
+          lyricSpan.style.filter = 'blur(2px)';
+          lyricSpan.style.textAlign = 'center';
+          lyricSpan.style.opacity = '0.9';
+          lyricSpan.style.position = 'absolute';
+          // Constrain position so text is always fully visible
+          const margin = 60;
+          lyricsContainer.appendChild(lyricSpan); // temporarily add to measure size
+          const spanRect = lyricSpan.getBoundingClientRect();
+          lyricsContainer.removeChild(lyricSpan);
+          const maxX = window.innerWidth - margin - spanRect.width;
+          const maxY = window.innerHeight - margin - spanRect.height;
+          const minX = margin;
+          const minY = margin;
+          const randX = Math.floor(Math.random() * (maxX - minX + 1)) + minX;
+          const randY = Math.floor(Math.random() * (maxY - minY + 1)) + minY;
+          lyricSpan.style.left = randX + 'px';
+          lyricSpan.style.top = randY + 'px';
+          lyricsContainer.style.position = 'fixed'; // ensure container is positioned
+          lyricsContainer.style.justifyContent = '';
+          lyricsContainer.style.alignItems = '';
+          lyricsContainer.style.flexDirection = '';
+          lyricsContainer.appendChild(lyricSpan);
+        }
+      }
+    }
   }, intervalFrame);
 
   source.onended = () => {

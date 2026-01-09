@@ -86,7 +86,7 @@ export const LYRICS = [
   { start: 31.0, end: 33.0, text: 'Routine is a spectrum' },
   { start: 33.0, end: 36.0, text: 'Live with the violence that you know' },
   { start: 37.2, end: 37.4, text: '!!!!!!!!!!!!!!!!' },
-  { start: 37.6, end: 37.8, text: '@*&^%)#*&))()*)_' },
+  { start: 37.7, end: 37.9, text: '@*&^%)#*&))()*)_' },
   { start: 38.0, end: 41.0, text: 'Routine is a spectrum' },
   { start: 41.0, end: 45.0, text: 'Carry on appearing whole' },
   { start: 45.0, end: 46.0, text: '(((((oooooooooooooo)))))' },

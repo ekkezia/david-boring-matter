@@ -225,7 +225,7 @@ import { isMobile } from '../utils.js';
       console.log('[DEBUG] Gyro already enabled, skipping permission.');
       return true;
     }
-
+    let ok = false;
     try {
       if (
         typeof DeviceOrientationEvent !== 'undefined' &&
@@ -236,11 +236,9 @@ import { isMobile } from '../utils.js';
         ok = (await DeviceOrientationEvent.requestPermission()) === 'granted';
         alert('Permission result: ' + ok);
         console.log('[DEBUG] Permission result:', ok);
-        return (ok = true);
       } else {
-        alert(
-          'No DeviceOrientationEvent.requestPermission; assuming permission not required.',
-        );
+        // Permission API not present; assume permission not required
+        ok = true;
         console.log(
           '[DEBUG] No DeviceOrientationEvent.requestPermission; assuming permission not required.',
         );
@@ -263,14 +261,22 @@ import { isMobile } from '../utils.js';
       return false;
     }
 
+    // Permission granted (or not required) — attach listener and update flags/UI
     window.addEventListener('deviceorientation', handleOrientation, true);
     gyroEnabled = true;
+    // set global flag so earlier checks that read window.gyroEnabled work
+    try {
+      window.gyroEnabled = true;
+    } catch (e) {
+      /* ignore */
+    }
     console.log(
       '[DEBUG] Gyro enabled, calling toggleRoomInputAvailability(true)',
     );
     toggleRoomInputAvailability(true);
     // Only hide the button if gyro is truly enabled
-    if (gyroBtn && gyroEnabled) gyroBtn.style.display = 'none';
+    if (typeof gyroBtn !== 'undefined' && gyroBtn && gyroEnabled)
+      gyroBtn.style.display = 'none';
     alert('Gyro enabled and event listener added.');
     return true;
   }

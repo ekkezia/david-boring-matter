@@ -107,7 +107,7 @@ if (roomInputContainerEl && roomInputContainerEl.children.length === 0) {
     const s = document.createElement('span');
     s.style.width = '40px';
     s.style.height = '60px';
-    s.style.background = '#ccc';
+    s.style.background = 'rgba(0,0,0,0.3)';
     s.style.borderRadius = '8px';
     s.style.display = 'inline-flex';
     s.style.alignItems = 'center';

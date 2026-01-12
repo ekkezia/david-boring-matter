@@ -125,8 +125,8 @@ import { isMobile } from '../utils.js';
   const compassCenterWrapper = document.createElement('div');
   compassCenterWrapper.style.position = 'absolute';
   compassCenterWrapper.style.left = '50%';
-  compassCenterWrapper.style.top = '10%';
   compassCenterWrapper.style.transform = 'translateX(-50%)';
+  compassCenterWrapper.style.top = '10%';
   compassCenterWrapper.style.display = 'none';
   compassCenterWrapper.style.zIndex = 1000;
 
@@ -143,12 +143,11 @@ import { isMobile } from '../utils.js';
   compassWrapper.style.userSelect = 'none';
   compassWrapper.style.pointerEvents = 'none';
   compassWrapper.style.display = 'none';
-  compassWrapper.style.left = '50%';
 
   compassCenterWrapper.appendChild(compassWrapper);
   document.body.append(compassCenterWrapper);
   compassCenterWrapper.style.display = 'none';
-  compassWrapper.style.transform = `translateX(-50%) rotate(0deg)`;
+  compassWrapper.style.transform = `rotate(0deg)`;
 
   // add the arrow (▲)
   const arrow = document.createElement('div');
@@ -206,7 +205,7 @@ import { isMobile } from '../utils.js';
     });
 
     // update compass UI
-    compassWrapper.style.transform = `translateX(-50%) rotate(${-processedUnit}deg)`;
+    compassWrapper.style.transform = `rotate(${-processedUnit}deg)`;
 
     // print delta on compass info
     compassInfo.innerText = `Delta: ${delta.toFixed(
@@ -220,7 +219,7 @@ import { isMobile } from '../utils.js';
   async function enableCompass() {
     console.log('[DEBUG] enableCompass called');
     if (gyroEnabled) {
-      alert('Gyro already enabled, skipping permission.');
+      // alert('Gyro already enabled, skipping permission.');
       console.log('[DEBUG] Gyro already enabled, skipping permission.');
       return true;
     }

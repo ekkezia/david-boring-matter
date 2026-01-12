@@ -143,11 +143,12 @@ import { isMobile } from '../utils.js';
   compassWrapper.style.userSelect = 'none';
   compassWrapper.style.pointerEvents = 'none';
   compassWrapper.style.display = 'none';
+  compassWrapper.style.left = '50%';
 
   compassCenterWrapper.appendChild(compassWrapper);
   document.body.append(compassCenterWrapper);
   compassCenterWrapper.style.display = 'none';
-  compassWrapper.style.transform = `rotate(0deg)`;
+  compassWrapper.style.transform = `translateX(-50%) rotate(0deg)`;
 
   // add the arrow (▲)
   const arrow = document.createElement('div');
@@ -205,7 +206,7 @@ import { isMobile } from '../utils.js';
     });
 
     // update compass UI
-    compassWrapper.style.transform = `rotate(${-processedUnit}deg)`;
+    compassWrapper.style.transform = `translateX(-50%) rotate(${-processedUnit}deg)`;
 
     // print delta on compass info
     compassInfo.innerText = `Delta: ${delta.toFixed(

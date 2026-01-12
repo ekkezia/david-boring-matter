@@ -125,8 +125,8 @@ import { isMobile } from '../utils.js';
   const compassCenterWrapper = document.createElement('div');
   compassCenterWrapper.style.position = 'absolute';
   compassCenterWrapper.style.left = '50%';
-  compassCenterWrapper.style.transform = 'translateX(-50%)';
-  compassCenterWrapper.style.top = '10%';
+  compassCenterWrapper.style.transform = 'translateX(-50%) translateY(-50%)';
+  compassCenterWrapper.style.top = '50%';
   compassCenterWrapper.style.display = 'none';
   compassCenterWrapper.style.zIndex = 1000;
 
@@ -170,7 +170,8 @@ import { isMobile } from '../utils.js';
   compassInfo.style.textAlign = 'center';
   compassWrapper.appendChild(compassInfo);
 
-  document.body.append(compassWrapper);
+  // compassWrapper is already appended to compassCenterWrapper above
+  // (do not append it to the body directly, otherwise centering breaks)
 
   // handle orientation
   let lastAlpha = null;

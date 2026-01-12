@@ -128,6 +128,8 @@ import { isMobile } from '../utils.js';
   compassCenterWrapper.style.transform = 'translateX(-50%) translateY(-50%)';
   compassCenterWrapper.style.top = '50%';
   compassCenterWrapper.style.display = 'none';
+  compassCenterWrapper.style.alignItems = 'center';
+  compassCenterWrapper.style.justifyContent = 'center';
   compassCenterWrapper.style.zIndex = 1000;
 
   // create the compass container (rotated)

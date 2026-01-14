@@ -247,7 +247,7 @@ const loadingTexts = document.createElement('div');
 loadingTexts.id = 'loading-texts';
 loadingTexts.style.pointerEvents = 'none';
 loadingTexts.style.textAlign = 'center';
-loadingTexts.style.fontSize = '6rem';
+loadingTexts.style.fontSize = '12rem';
 loadingTexts.textContent = 'MACHINE #4';
 loadingTexts.style.filter = 'blur(4px)';
 loadingTexts.style.color = 'white';
@@ -518,7 +518,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   viewer.scene.globe.maximumScreenSpaceError = 4.0; // coarser detail = faster
 
-  loadAudio('/public/audio.wav').then(() => {
+  loadAudio('/audio.wav').then(() => {
     setTimeout(() => {
       tryStartExperience();
     }, 1000);
@@ -644,7 +644,22 @@ if (SHOW_SCRUBBER) {
 }
 
 function startPlayback(fromOffset = 0) {
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  // Prevent overlapping audio: stop and clean up any existing source/interval
+  if (source) {
+    try {
+      source.stop();
+    } catch (e) {}
+    try {
+      source.disconnect();
+    } catch (e) {}
+    source = null;
+  }
+  if (interval) {
+    clearInterval(interval);
+    interval = null;
+  }
+
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 
   source = audioCtx.createBufferSource();
   source.buffer = audioBuffer;
@@ -918,15 +933,26 @@ function startPlayback(fromOffset = 0) {
         }
         // Hide restart button
         restartBtn.style.display = 'none';
-        // Show play/pause and timer again
-        // if (playBtn) {
-        //   playBtn.style.opacity = '1';
-        //   playBtn.style.pointerEvents = 'auto';
-        // }
-        // if (pauseBtn) {
-        //   pauseBtn.style.opacity = '1';
-        //   pauseBtn.style.pointerEvents = 'auto';
-        // }
+        // Show play/pause and timer again (only on non-mobile)
+        if (!isMobile) {
+          if (playBtn) {
+            playBtn.style.opacity = '1';
+            playBtn.style.pointerEvents = 'auto';
+          }
+          if (pauseBtn) {
+            pauseBtn.style.opacity = '1';
+            pauseBtn.style.pointerEvents = 'auto';
+          }
+        } else {
+          if (playBtn) {
+            playBtn.style.opacity = '0';
+            playBtn.style.pointerEvents = 'none';
+          }
+          if (pauseBtn) {
+            pauseBtn.style.opacity = '0';
+            pauseBtn.style.pointerEvents = 'none';
+          }
+        }
         if (playbackTimestamp) playbackTimestamp.style.display = 'flex';
         // Show the map again
         const cesiumContainer = document.getElementById('cesiumContainer');
@@ -949,43 +975,45 @@ function pausePlayback() {
   clearInterval(interval);
   pauseTime = audioCtx.currentTime - startTime; // save current position
   isPlaying = false;
-  if (playBtn) {
-    playBtn.textContent = '▶︎ PLAY';
+  // Only manipulate visible controls on non-mobile devices
+  if (!isMobile) {
+    if (playBtn) {
+      playBtn.textContent = '▶︎ PLAY';
+      playBtn.style.opacity = '1';
+      playBtn.style.pointerEvents = 'auto';
+      playBtn.style.zIndex = '11000';
+      // Defensive: always ensure visible after pause
+      setTimeout(() => {
+        playBtn.style.opacity = '1';
+      }, 10);
+    }
+    if (pauseBtn) {
+      pauseBtn.style.opacity = '0';
+      pauseBtn.style.pointerEvents = 'none';
+      pauseBtn.style.zIndex = '10000';
+    }
+    // Show play button after pausing
     playBtn.style.opacity = '1';
     playBtn.style.pointerEvents = 'auto';
-    playBtn.style.zIndex = '11000';
-    // Defensive: always ensure visible after pause
-    setTimeout(() => {
-      playBtn.style.opacity = '1';
-    }, 10);
-  }
-  if (pauseBtn) {
     pauseBtn.style.opacity = '0';
     pauseBtn.style.pointerEvents = 'none';
-    pauseBtn.style.zIndex = '10000';
+  } else {
+    // Ensure hidden on mobile
+    if (playBtn) {
+      playBtn.style.opacity = '0';
+      playBtn.style.pointerEvents = 'none';
+    }
+    if (pauseBtn) {
+      pauseBtn.style.opacity = '0';
+      pauseBtn.style.pointerEvents = 'none';
+    }
   }
-  // Show play button after pausing
-  playBtn.style.opacity = '1';
-  playBtn.style.pointerEvents = 'auto';
-  pauseBtn.style.opacity = '0';
-  pauseBtn.style.pointerEvents = 'none';
 }
 
 function togglePlayback() {
   if (!playBtn || !pauseBtn) return;
 
-  const canPlay = playBtn.style.pointerEvents !== 'none';
-  const canPause = pauseBtn.style.pointerEvents !== 'none';
-
-  if (isPlaying) {
-    console.log('here');
-    if (!canPause) return;
-    pauseBtn.click();
-  } else {
-    console.log('no here');
-    if (!canPlay) return;
-    playBtn.click();
-  }
+  // todo
 }
 
 function stopPlayback() {
@@ -1331,13 +1359,24 @@ function startPlaybackTimestamp(offset = 0) {
           // Restore background to original state
           document.body.style.background = '';
           // Show play/pause and timer again
-          if (playBtn) {
-            playBtn.style.opacity = '1';
-            playBtn.style.pointerEvents = 'auto';
-          }
-          if (pauseBtn) {
-            pauseBtn.style.opacity = '1';
-            pauseBtn.style.pointerEvents = 'auto';
+          if (!isMobile) {
+            if (playBtn) {
+              playBtn.style.opacity = '1';
+              playBtn.style.pointerEvents = 'auto';
+            }
+            if (pauseBtn) {
+              pauseBtn.style.opacity = '1';
+              pauseBtn.style.pointerEvents = 'auto';
+            }
+          } else {
+            if (playBtn) {
+              playBtn.style.opacity = '0';
+              playBtn.style.pointerEvents = 'none';
+            }
+            if (pauseBtn) {
+              pauseBtn.style.opacity = '0';
+              pauseBtn.style.pointerEvents = 'none';
+            }
           }
           if (playbackTimestamp) playbackTimestamp.style.display = 'flex';
           // Show the map again
@@ -1487,12 +1526,36 @@ pauseBtn.addEventListener('click', function (e) {
   showPlayOnHover();
 });
 function showPlayOnHover() {
+  if (isMobile) {
+    if (playBtn) {
+      playBtn.style.opacity = '0';
+      playBtn.style.pointerEvents = 'none';
+    }
+    if (pauseBtn) {
+      pauseBtn.style.opacity = '0';
+      pauseBtn.style.pointerEvents = 'none';
+    }
+    return;
+  }
+
   playBtn.style.opacity = !isPlaying ? '1' : '0';
   pauseBtn.style.opacity = '0';
   playBtn.style.pointerEvents = 'auto';
 }
 
 function showPauseOnHover() {
+  if (isMobile) {
+    if (playBtn) {
+      playBtn.style.opacity = '0';
+      playBtn.style.pointerEvents = 'none';
+    }
+    if (pauseBtn) {
+      pauseBtn.style.opacity = '0';
+      pauseBtn.style.pointerEvents = 'none';
+    }
+    return;
+  }
+
   playBtn.style.opacity = '0';
   pauseBtn.style.opacity = isPlaying ? '1' : '0';
   pauseBtn.style.pointerEvents = 'auto';
@@ -1528,9 +1591,21 @@ guestBtn.addEventListener('click', async (e) => {
   hideUiPanel();
 
   // Enable playback controls
-  playBtn.style.pointerEvents = 'auto';
-  pauseBtn.style.pointerEvents = 'auto';
-  pauseBtn.style.opacity = '0'; // Ensure pauseBtn is hidden on entry
+  if (!isMobile) {
+    playBtn.style.pointerEvents = 'auto';
+    pauseBtn.style.pointerEvents = 'auto';
+    pauseBtn.style.opacity = '0'; // Ensure pauseBtn is hidden on entry
+  } else {
+    // Ensure mobile never shows these buttons
+    if (playBtn) {
+      playBtn.style.pointerEvents = 'none';
+      playBtn.style.opacity = '0';
+    }
+    if (pauseBtn) {
+      pauseBtn.style.pointerEvents = 'none';
+      pauseBtn.style.opacity = '0';
+    }
+  }
   // Start playback in guest mode. Uses shared isDeviceRotated() helper.
 
   if (typeof startPlayback === 'function') {
@@ -1601,10 +1676,10 @@ document.addEventListener('keydown', (e) => {
   if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA'))
     return;
 
-  if (e.code === 'Space' || e.key === ' ') {
-    e.preventDefault();
-    togglePlayback();
-  }
+  // if (e.code === 'Space' || e.key === ' ') {
+  //   e.preventDefault();
+  //   togglePlayback();
+  // }
 
   // Fullscreen on 'F' key
   if (e.key === 'f' || e.key === 'F') {

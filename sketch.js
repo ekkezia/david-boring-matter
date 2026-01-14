@@ -558,7 +558,7 @@ async function loadAudio(url) {
 let startTime = 0; // when the playback started
 let pauseTime = 0; // how many seconds have already played
 const playBtn = document.getElementById('playBtn');
-playBtn.style.pointerEvents = 'auto';
+playBtn.style.pointerEvents = 'none';
 playBtn.style.zIndex = '20001';
 playBtn.style.opacity = '0';
 playBtn.onmouseenter = () => {
@@ -569,7 +569,7 @@ playBtn.onmouseleave = () => {
 };
 const playbackTimestamp = document.getElementById('playback-timestamp');
 const pauseBtn = document.getElementById('pauseBtn');
-pauseBtn.style.pointerEvents = 'auto';
+pauseBtn.style.pointerEvents = 'none';
 pauseBtn.style.zIndex = '20001';
 pauseBtn.style.opacity = '0';
 pauseBtn.onmouseenter = () => {
@@ -636,6 +636,17 @@ function startPlayback(fromOffset = 0) {
   startTime = audioCtx.currentTime - fromOffset; // start time accounting for offset
   source.start(0, fromOffset); // start at offset seconds
   isPlaying = true;
+
+  // enable pause button and disable play button while playing
+  if (pauseBtn) {
+    pauseBtn.style.pointerEvents = 'auto';
+    pauseBtn.style.opacity = '1';
+    pauseBtn.style.zIndex = '11000';
+  }
+  if (playBtn) {
+    playBtn.style.pointerEvents = 'none';
+    playBtn.style.opacity = '0';
+  }
 
   // fixed direction (north)
   let directionAngle = 0; // 0 radians = north
@@ -1130,10 +1141,6 @@ document.addEventListener('DOMContentLoaded', showUserLocation);
       // Hide the room code UI
       hideUiPanel();
       status = 'OK';
-      setTimeout(() => {
-        playBtn.style.pointerEvents = 'auto'; // enable clicks globally
-        pauseBtn.style.pointerEvents = 'auto'; // enable clicks globally
-      }, 1000);
     } else console.log('Wrong room code.');
   });
 

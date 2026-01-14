@@ -150,18 +150,36 @@ ui.innerHTML = !isMobile
     <button id="gc-connect" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">AUTOPILOT</button>
   `
   : `
-    <p style="font-size:1.2rem;">Prefer to sit back & relax? MACHINE #4 will drive for you.</p>
+    <p style="font-size:1.2rem;">MACHINE #4 will autonomously drive for you.</p>
     <button id="gc-connect" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">AUTOPILOT</button>
     <p style="font-size:1.2rem;">Do you have a Desktop? Use your device to control MACHINE #4 on Desktop.</p>
-    <button id="solo-remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">SOLO</button>
-    <p style="font-size:1.2rem;">Use your device to control MACHINE #4 on your mobile device.</p>
     <button id="remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">REMOTE</button>
     `;
+
+//     <p style="font-size:1.2rem;">Use your device to control MACHINE #4 on your mobile device.</p>
+// <button id="solo-remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">SOLO</button>
+
 // <div id='gc-status' style='margin-top:6px;font-size:12px;opacity:0.9'>
 //   Disconnected
 // </div>;
 
 document.body.appendChild(ui);
+
+function hideUiPanel() {
+  if (ui) {
+    ui.style.backdropFilter = 'blur(0px)';
+    ui.style.opacity = '0';
+    loadingDiv.style.opacity = '0';
+    ui.style.pointerEvents = 'none';
+  }
+
+  setTimeout(() => {
+    if (roomCodePanel) {
+      ui.style.display = 'none';
+      loadingDiv.style.display = 'none';
+    }
+  }, 700);
+}
 
 // create visible digit spans
 const roomInputContainerEl = document.getElementById('room-input-container');
@@ -276,6 +294,83 @@ if (isMobile) {
   window.addEventListener('resize', handleRotationChange);
 }
 
+// Mobile-only fullscreen toggle (top-center, 10px from top)
+if (isMobile) {
+  (function createMobileFullscreenToggle() {
+    function isFullscreen() {
+      return !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+    }
+
+    const fsBtn = document.createElement('button');
+    fsBtn.id = 'mobile-fullscreen-toggle';
+    fsBtn.title = 'Toggle fullscreen';
+    fsBtn.textContent = isFullscreen() ? '(-)' : '+';
+    fsBtn.style.position = 'fixed';
+    fsBtn.style.left = '50%';
+    fsBtn.style.transform = 'translateX(-50%)';
+    fsBtn.style.top = '10px';
+    fsBtn.style.zIndex = '50000';
+    fsBtn.style.width = '46px';
+    fsBtn.style.height = '46px';
+    fsBtn.style.borderRadius = '24px';
+    fsBtn.style.background = 'rgba(0,0,0,0.6)';
+    fsBtn.style.color = 'white';
+    fsBtn.style.border = 'none';
+    fsBtn.style.fontSize = '24px';
+    fsBtn.style.display = 'flex';
+    fsBtn.style.alignItems = 'center';
+    fsBtn.style.justifyContent = 'center';
+    fsBtn.style.cursor = 'pointer';
+    fsBtn.style.pointerEvents = 'auto';
+    fsBtn.style.display = 'none';
+
+    async function enterFullscreen() {
+      const el = document.documentElement;
+      try {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+      } catch (e) {
+        console.warn('requestFullscreen failed', e);
+      }
+    }
+
+    async function exitFullscreen() {
+      try {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+      } catch (e) {
+        console.warn('exitFullscreen failed', e);
+      }
+    }
+
+    fsBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!isFullscreen()) await enterFullscreen();
+      else await exitFullscreen();
+      // label will be updated by fullscreenchange handlers
+    });
+
+    function updateLabel() {
+      fsBtn.textContent = isFullscreen() ? '(-)' : '+';
+    }
+
+    document.addEventListener('fullscreenchange', updateLabel);
+    document.addEventListener('webkitfullscreenchange', updateLabel);
+    document.addEventListener('mozfullscreenchange', updateLabel);
+    document.addEventListener('MSFullscreenChange', updateLabel);
+
+    document.body.appendChild(fsBtn);
+  })();
+}
 // currentLon & currentLat is in interaction.js
 window.addEventListener('DOMContentLoaded', () => {
   Cesium.Ion.defaultAccessToken =
@@ -726,7 +821,7 @@ function startPlayback(fromOffset = 0) {
           lyricSpan.style.fontSize = isMobile ? '3rem' : '5rem';
           lyricSpan.style.fontWeight = 'bold';
           lyricSpan.style.whiteSpace = 'nowrap';
-          lyricSpan.style.filter = 'blur(2px)';
+          lyricSpan.style.filter = isMobile ? 'blur(1px)' : 'blur(2px)';
           lyricSpan.style.textAlign = 'center';
           lyricSpan.style.opacity = '0.9';
           lyricSpan.style.position = 'absolute';
@@ -1033,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', showUserLocation);
       hasSelectedMode = true;
       // Change the UI Guest Panel
       // Hide the room code UI
-      hideRoomCodePanel();
+      hideUiPanel();
       status = 'OK';
       setTimeout(() => {
         playBtn.style.pointerEvents = 'auto'; // enable clicks globally
@@ -1408,7 +1503,7 @@ guestBtn.addEventListener('click', () => {
   hasSelectedMode = true;
 
   // Hide the room UI
-  hideRoomCodePanel();
+  hideUiPanel();
 
   // Enable playback controls
   playBtn.style.pointerEvents = 'auto';
@@ -1454,15 +1549,27 @@ remoteBtn.addEventListener('click', async () => {
 });
 
 const soloRemoteBtn = document.getElementById('solo-remote-btn');
-soloRemoteBtn.addEventListener('click', async () => {
-  isSolo = true;
-  // enable local gyro (requests permission on iOS)
-  try {
-    await enableLocalGyro();
-  } catch (e) {
-    console.warn('enableLocalGyro failed', e);
-  }
-});
+if (soloRemoteBtn) {
+  soloRemoteBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    // Attempt to enable local gyro (permission must run inside user gesture)
+    isSolo = true;
+    try {
+      await enableLocalGyro();
+    } catch (err) {
+      console.warn('enableLocalGyro failed', err);
+    }
+
+    // Only hide UI after attempting permission so prompt isn't blocked
+    try {
+      hideUiPanel();
+    } catch (hideErr) {
+      console.warn('hideUiPanel failed', hideErr);
+    }
+  });
+} else {
+  console.warn('solo-remote-btn not found; cannot attach SOLO handler');
+}
 
 // Space bar and Fullscreen listener
 document.addEventListener('keydown', (e) => {
@@ -1505,18 +1612,6 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
-
-function hideRoomCodePanel() {
-  const roomCodePanel = document.getElementById('room-code-panel');
-  if (roomCodePanel) {
-    roomCodePanel.style.backdropFilter = 'blur(0px)';
-    roomCodePanel.style.opacity = '0';
-  }
-
-  setTimeout(() => {
-    if (roomCodePanel) roomCodePanel.remove();
-  }, 700);
-}
 
 // --- BLINKING ---
 // Text animation

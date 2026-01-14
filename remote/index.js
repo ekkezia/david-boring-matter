@@ -13,6 +13,66 @@ import { isMobile } from '../utils.js';
   let gyroEnabled = false;
 
   const guestPanelEl = document.getElementById('guest-panel');
+  function isPortrait() {
+    try {
+      if (
+        screen &&
+        screen.orientation &&
+        typeof screen.orientation.type === 'string'
+      ) {
+        return screen.orientation.type.indexOf('portrait') !== -1;
+      }
+    } catch (e) {}
+    if (typeof window.orientation !== 'undefined')
+      return Math.abs(window.orientation) === 0;
+    if (window.matchMedia)
+      return window.matchMedia('(orientation: portrait)').matches;
+    return true;
+  }
+
+  // Create a persistent rotate overlay that instructs user to rotate device
+  const rotateOverlay = document.createElement('div');
+  rotateOverlay.id = 'remote-rotate-overlay';
+  Object.assign(rotateOverlay.style, {
+    position: 'fixed',
+    left: '0',
+    top: '0',
+    width: '100%',
+    height: '100%',
+    display: 'none',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: '20000',
+    background: 'rgba(0,0,0,0.85)',
+    color: '#fff',
+    textAlign: 'center',
+    padding: '24px',
+  });
+  const rotateMsg = document.createElement('div');
+  rotateMsg.style.fontSize = '1.2rem';
+  rotateMsg.style.maxWidth = '90%';
+  rotateMsg.textContent = 'Rotate your device to portrait to use the remote.';
+  rotateOverlay.appendChild(rotateMsg);
+  document.body.appendChild(rotateOverlay);
+
+  function updateRotateOverlay() {
+    const portrait = isPortrait();
+    if (!portrait) {
+      // show overlay and hide guest panel interactions
+      rotateOverlay.style.display = 'flex';
+      if (guestPanelEl) guestPanelEl.style.display = 'none';
+    } else {
+      rotateOverlay.style.display = 'none';
+      if (guestPanelEl) guestPanelEl.style.display = '';
+    }
+  }
+
+  // initial check
+  updateRotateOverlay();
+
+  // update on change
+  window.addEventListener('orientationchange', updateRotateOverlay);
+  window.addEventListener('resize', updateRotateOverlay);
   const roomInputContainerEl = document.getElementById('room-input-container');
   const gyroDependentEls = [];
   let gyroNotice = null;

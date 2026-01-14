@@ -23,6 +23,27 @@ function isDeviceRotated() {
   return false;
 }
 
+// Attempt to lock screen orientation to landscape. Must be called from a user gesture.
+async function lockLandscape() {
+  try {
+    if (
+      screen &&
+      screen.orientation &&
+      typeof screen.orientation.lock === 'function'
+    ) {
+      await screen.orientation.lock('landscape');
+      console.log('Orientation locked to landscape');
+      return true;
+    }
+  } catch (e) {
+    console.warn('screen.orientation.lock failed', e);
+  }
+
+  // Some platforms (older iOS Safari) don't support lock; return false so caller can fallback.
+  console.warn('Orientation lock not supported or failed');
+  return false;
+}
+
 // --- Cesium Standalone Logic ---
 let viewer, movingPoint;
 let audioCtx, source, analyser, timeDomainData, frequencyData, audioBuffer;
@@ -636,17 +657,6 @@ function startPlayback(fromOffset = 0) {
   startTime = audioCtx.currentTime - fromOffset; // start time accounting for offset
   source.start(0, fromOffset); // start at offset seconds
   isPlaying = true;
-
-  // enable pause button and disable play button while playing
-  if (pauseBtn) {
-    pauseBtn.style.pointerEvents = 'auto';
-    pauseBtn.style.opacity = '1';
-    pauseBtn.style.zIndex = '11000';
-  }
-  if (playBtn) {
-    playBtn.style.pointerEvents = 'none';
-    playBtn.style.opacity = '0';
-  }
 
   // fixed direction (north)
   let directionAngle = 0; // 0 radians = north
@@ -1504,7 +1514,15 @@ document.addEventListener('restart-clicked', function () {
 });
 
 const guestBtn = document.getElementById('gc-connect');
-guestBtn.addEventListener('click', () => {
+guestBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+  // Try to lock orientation to landscape as part of this user gesture
+  try {
+    await lockLandscape();
+  } catch (err) {
+    console.warn('lockLandscape threw', err);
+  }
+
   shadowMovementEnabled = true;
   isAutopilot = true;
   hasSelectedMode = true;

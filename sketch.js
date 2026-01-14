@@ -4,25 +4,6 @@ import { defaultServer } from './config.js';
 import { isMobile } from './utils.js';
 import LYRICS from './lyrics.js';
 
-// Helper: detect whether the device is rotated to landscape
-function isDeviceRotated() {
-  if (typeof isMobile === 'boolean' && !isMobile) return true;
-  try {
-    if (
-      screen &&
-      screen.orientation &&
-      typeof screen.orientation.type === 'string'
-    ) {
-      return screen.orientation.type.indexOf('landscape') !== -1;
-    }
-  } catch (e) {}
-  if (typeof window.orientation !== 'undefined')
-    return Math.abs(window.orientation) === 90;
-  if (window.matchMedia)
-    return window.matchMedia('(orientation: landscape)').matches;
-  return false;
-}
-
 // --- Cesium Standalone Logic ---
 let viewer, movingPoint;
 let audioCtx, source, analyser, timeDomainData, frequencyData, audioBuffer;
@@ -42,39 +23,6 @@ let lastLyricsIndex = -1;
 const gyro = { alpha: null, beta: null, gamma: null };
 let cameraHeading = 0; // store current camera rotation in radians - correlated with gyro's rotation
 
-// Local gyro flag (when using the same device as controller)
-window.localGyroEnabled = false;
-
-async function enableLocalGyro() {
-  if (window.localGyroEnabled) return;
-  // iOS requires explicit permission
-  try {
-    if (
-      typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function'
-    ) {
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if (perm !== 'granted') {
-        console.warn('DeviceOrientation permission not granted');
-        return;
-      }
-    }
-  } catch (e) {
-    console.warn('DeviceOrientation permission request failed', e);
-  }
-
-  function handleLocalOrientation(e) {
-    // update shared gyro object so existing code can use it
-    gyro.alpha = e.alpha;
-    gyro.beta = e.beta;
-    gyro.gamma = e.gamma;
-  }
-
-  window.addEventListener('deviceorientation', handleLocalOrientation, true);
-  window.localGyroEnabled = true;
-  console.log('Local gyro enabled');
-}
-
 let socket = null;
 
 // Loading States
@@ -84,9 +32,7 @@ let roomReady = false;
 
 // Modes
 let hasSelectedMode = true;
-let isAutopilot = false;
-let isSolo = false;
-let isRemote = false;
+let isGuest = false;
 
 // UI Elements
 // GYRO INFO UI
@@ -140,23 +86,14 @@ ui.style.filter = 'blur(0.5px)';
 ui.style.textAlign = 'center';
 ui.style.transition =
   'backdrop-filter 0.7s cubic-bezier(.4,0,.2,1), background 0.7s cubic-bezier(.4,0,.2,1), opacity 0.7s cubic-bezier(.4,0,.2,1)';
-ui.innerHTML = !isMobile
-  ? `
+ui.innerHTML = `
     <p style="width:400px;font-size:1.2rem;">Enter the room code on your mobile device to use it as remote control</p>
 
     <div id="room-input-container" style="display:flex;gap:6px;margin-bottom:6px"></div>
     <input id="gc-room" type="hidden" />
     <p style="font-size:1.2rem;">Don't have a mobile device?</p>
     <button id="gc-connect" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">AUTOPILOT</button>
-  `
-  : `
-    <p style="font-size:1.2rem;">Prefer to sit back & relax? MACHINE #4 will drive for you.</p>
-    <button id="gc-connect" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">AUTOPILOT</button>
-    <p style="font-size:1.2rem;">Do you have a Desktop? Use your device to control MACHINE #4 on Desktop.</p>
-    <button id="solo-remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">SOLO</button>
-    <p style="font-size:1.2rem;">Use your device to control MACHINE #4 on your mobile device.</p>
-    <button id="remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">REMOTE</button>
-    `;
+  `;
 // <div id='gc-status' style='margin-top:6px;font-size:12px;opacity:0.9'>
 //   Disconnected
 // </div>;
@@ -189,6 +126,7 @@ const smoothEl = document.getElementById('gc-smooth');
 // Create loading overlay
 let loadingDiv = document.createElement('div');
 loadingDiv.id = 'audio-loading';
+loadingDiv.textContent = 'MACHINE #4';
 loadingDiv.style.position = 'fixed';
 loadingDiv.style.top = '0';
 loadingDiv.style.left = '0';
@@ -203,78 +141,7 @@ loadingDiv.style.fontSize = '6rem';
 loadingDiv.style.zIndex = '999';
 loadingDiv.style.backdropFilter = 'blur(16px)';
 loadingDiv.style.filter = 'blur(4px)';
-
-// container for rotating texts (so other overlays can be independent)
-const loadingTexts = document.createElement('div');
-loadingTexts.id = 'loading-texts';
-loadingTexts.style.pointerEvents = 'none';
-loadingTexts.style.textAlign = 'center';
-loadingTexts.style.fontSize = '6rem';
-loadingTexts.textContent = 'MACHINE #4';
-loadingDiv.appendChild(loadingTexts);
-
-// on mobile, show a small hint at the bottom of the loading overlay
-if (isMobile) {
-  const rotateHint = document.createElement('div');
-  rotateHint.id = 'loading-rotate-hint';
-  rotateHint.textContent = 'Rotate Your. Device';
-  rotateHint.style.position = 'absolute';
-  rotateHint.style.left = '50%';
-  rotateHint.style.bottom = '20px';
-  rotateHint.style.transform = 'translateX(-50%)';
-  rotateHint.style.fontSize = '1rem';
-  rotateHint.style.color = 'white';
-  rotateHint.style.opacity = '0.9';
-  rotateHint.style.transition = 'opacity 0.3s ease';
-  rotateHint.style.pointerEvents = 'none';
-  loadingDiv.appendChild(rotateHint);
-}
-
 document.body.appendChild(loadingDiv);
-
-// If mobile and not rotated, show the rotate notice immediately so it's
-// visible alongside the loading texts from the start.
-if (isMobile && !isDeviceRotated()) {
-  if (!document.getElementById('rotate-notice')) {
-    const rn = document.createElement('div');
-    rn.id = 'rotate-notice';
-    rn.style.position = 'fixed';
-    rn.style.left = '50%';
-    rn.style.bottom = '20%';
-    rn.style.transform = 'translateX(-50%)';
-    rn.style.padding = '12px 18px';
-    rn.style.background = 'rgba(0,0,0,0.6)';
-    rn.style.color = 'white';
-    rn.style.borderRadius = '8px';
-    rn.style.zIndex = 40000;
-    rn.style.fontSize = '2.5rem';
-    rn.style.textAlign = 'center';
-    rn.textContent = 'Please rotate your device to landscape to continue.';
-    rn.style.opacity = '1';
-    rn.style.transition = 'opacity 0.3s ease';
-    document.body.appendChild(rn);
-  }
-}
-
-// shared rotation handler to toggle visibility of rotate notices
-function handleRotationChange() {
-  const rotated = isDeviceRotated();
-  const rn = document.getElementById('rotate-notice');
-  const rh = document.getElementById('loading-rotate-hint');
-  if (rn) rn.style.opacity = rotated ? '0' : '1';
-  if (rh) rh.style.opacity = rotated ? '0' : '0.9';
-  // toggle main UI visibility when all ready
-  if (rotated) {
-    ui.style.opacity = 1;
-  } else {
-    ui.style.opacity = 0;
-  }
-}
-
-if (isMobile) {
-  window.addEventListener('orientationchange', handleRotationChange);
-  window.addEventListener('resize', handleRotationChange);
-}
 
 // currentLon & currentLat is in interaction.js
 window.addEventListener('DOMContentLoaded', () => {
@@ -306,7 +173,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (!cesiumContainer) return;
     const canvas = cesiumContainer.querySelector('canvas');
     if (!canvas) return;
-    const svgMask = "url('/public/mask.svg')";
+    const svgMask = "url('/mask.svg')";
     cesiumContainer.style.webkitMaskImage = svgMask;
     cesiumContainer.style.maskImage = svgMask;
     cesiumContainer.style.webkitMaskRepeat = 'no-repeat';
@@ -390,7 +257,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   viewer.scene.globe.maximumScreenSpaceError = 4.0; // coarser detail = faster
 
-  loadAudio('/public/audio.wav').then(() => {
+  loadAudio('/audio.wav').then(() => {
     setTimeout(() => {
       tryStartExperience();
     }, 1000);
@@ -398,40 +265,9 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function checkAllReady() {
-  if (!(audioReady && mapReady && roomReady)) return;
-
-  // use shared isDeviceRotated() helper above
-
-  // show a small rotate prompt on mobile when not rotated
-  if (isMobile && !isDeviceRotated()) {
-    ui.style.opacity = 0;
-    if (!document.getElementById('rotate-notice')) {
-      const rn = document.createElement('div');
-      rn.id = 'rotate-notice';
-      rn.style.position = 'fixed';
-      rn.style.left = '50%';
-      rn.style.top = '40%';
-      rn.style.transform = 'translateX(-50%)';
-      rn.style.padding = '12px 18px';
-      rn.style.background = 'rgba(0,0,0,0.6)';
-      rn.style.color = 'white';
-      rn.style.borderRadius = '8px';
-      rn.style.zIndex = 40000;
-      rn.style.fontSize = '1.1rem';
-      rn.style.textAlign = 'center';
-      rn.textContent = 'Please rotate your device to landscape to continue.';
-      rn.style.opacity = '1';
-      rn.style.transition = 'opacity 0.3s ease';
-      document.body.appendChild(rn);
-    }
-
-    // ensure rotation handler updates UI immediately
-    if (typeof handleRotationChange === 'function') handleRotationChange();
-    return;
+  if (audioReady && mapReady && roomReady) {
+    ui.style.opacity = 1;
   }
-
-  // Desktop or mobile rotated: show UI
-  ui.style.opacity = 1;
 }
 
 function tryStartExperience() {
@@ -630,8 +466,8 @@ function startPlayback(fromOffset = 0) {
 
     let speed = amplitude * 0.001; // tweak as needed
 
-    // Access as AUTOPILOT
-    if (isAutopilot) {
+    // Access as GUEST
+    if (isGuest) {
       currentLat += speed * 2; // move northward
       currentLon += Math.sin(audioCtx.currentTime) * speed * 0.5; // small sideways movement for variation
       locDiv.innerText = `${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`;
@@ -661,46 +497,7 @@ function startPlayback(fromOffset = 0) {
       currentLat += speed * 2;
     }
 
-    // Access as SOLO — speed scales with local gyro (device tilt)
-    if (isSolo) {
-      // ensure local gyro is enabled when possible
-      if (isMobile && !window.localGyroEnabled) enableLocalGyro();
-
-      // map beta tilt (front/back) to speed multiplier
-      const gyroVal = Math.abs(gyro.beta || 0);
-      let gyroMultiplier = 1 + gyroVal / 90; // ranges ~1..3
-      gyroMultiplier = Math.min(Math.max(0.5, gyroMultiplier), 3);
-
-      currentLat += speed * 2 * gyroMultiplier; // move northward scaled by tilt
-      currentLon +=
-        Math.sin(audioCtx.currentTime) * speed * 0.5 * gyroMultiplier; // small sideways movement scaled
-      locDiv.innerText = `${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`;
-      deltaInfoUI.innerText = amplitude;
-      idUI.innerText = '0S0L000000';
-
-      if (movingPoint && viewer) {
-        const newPosition = Cesium.Cartesian3.fromDegrees(
-          currentLon,
-          currentLat,
-          height,
-        );
-        movingPoint.position = newPosition;
-
-        viewer.camera.setView({
-          destination: newPosition,
-          orientation: {
-            heading: 0, // always north
-            pitch: Cesium.Math.toRadians(-15),
-            roll: 0,
-          },
-        });
-      }
-    } else {
-      deltaInfoUI.innerText = amplitude;
-      currentLat += speed * 2;
-    }
-
-    if (!isAutopilot) showPlayOnHover();
+    if (!isGuest) showPlayOnHover();
 
     // Show lyrics (active line only)
     if (lyricsContainer && lyricsRanges) {
@@ -723,7 +520,7 @@ function startPlayback(fromOffset = 0) {
           const lyricSpan = document.createElement('span');
           lyricSpan.textContent = text;
           lyricSpan.style.color = 'white';
-          lyricSpan.style.fontSize = isMobile ? '3rem' : '5rem';
+          lyricSpan.style.fontSize = '5rem';
           lyricSpan.style.fontWeight = 'bold';
           lyricSpan.style.whiteSpace = 'nowrap';
           lyricSpan.style.filter = 'blur(2px)';
@@ -1095,39 +892,39 @@ document.addEventListener('DOMContentLoaded', showUserLocation);
 
 // UI ELEMENTS & LOGIC
 // redirect to /remote/ if on mobile device — but only if that path exists
-// if (isMobile) {
-async function goToRemote() {
-  try {
-    const remoteIndex = new URL('/remote/index.html', window.location.origin)
-      .href;
-    // Try a HEAD request first; some hosts don't allow HEAD so fall back to GET
-    let ok = false;
+if (isMobile) {
+  (async () => {
     try {
-      const resp = await fetch(remoteIndex, { method: 'HEAD' });
-      ok = resp && resp.ok;
-    } catch (headErr) {
+      const remoteIndex = new URL('/remote/index.html', window.location.origin)
+        .href;
+      // Try a HEAD request first; some hosts don't allow HEAD so fall back to GET
+      let ok = false;
       try {
-        const resp2 = await fetch(remoteIndex, { method: 'GET' });
-        ok = resp2 && resp2.ok;
-      } catch (getErr) {
-        ok = false;
+        const resp = await fetch(remoteIndex, { method: 'HEAD' });
+        ok = resp && resp.ok;
+      } catch (headErr) {
+        try {
+          const resp2 = await fetch(remoteIndex, { method: 'GET' });
+          ok = resp2 && resp2.ok;
+        } catch (getErr) {
+          ok = false;
+        }
       }
-    }
 
-    if (ok) {
-      const currentUrl = new URL(window.location.href);
-      currentUrl.pathname = '/remote/';
-      window.location.href = currentUrl.href;
-    } else {
-      console.warn(
-        'Remote path not found; skipping mobile redirect to /remote/',
-      );
+      if (ok) {
+        const currentUrl = new URL(window.location.href);
+        currentUrl.pathname = '/remote/';
+        window.location.href = currentUrl.href;
+      } else {
+        console.warn(
+          'Remote path not found; skipping mobile redirect to /remote/',
+        );
+      }
+    } catch (err) {
+      console.warn('Error checking remote path, skipping redirect', err);
     }
-  } catch (err) {
-    console.warn('Error checking remote path, skipping redirect', err);
-  }
+  })();
 }
-// }
 
 // UI elements
 // Playback timestamp element
@@ -1404,7 +1201,7 @@ document.addEventListener('restart-clicked', function () {
 const guestBtn = document.getElementById('gc-connect');
 guestBtn.addEventListener('click', () => {
   shadowMovementEnabled = true;
-  isAutopilot = true;
+  isGuest = true;
   hasSelectedMode = true;
 
   // Hide the room UI
@@ -1414,53 +1211,14 @@ guestBtn.addEventListener('click', () => {
   playBtn.style.pointerEvents = 'auto';
   pauseBtn.style.pointerEvents = 'auto';
   pauseBtn.style.opacity = '0'; // Ensure pauseBtn is hidden on entry
-  // Start playback in guest mode. Uses shared isDeviceRotated() helper.
-
+  // Immediately start playback in guest mode
   if (typeof startPlayback === 'function') {
-    const startNow = () => {
-      startPlayback(0);
-      startPlaybackTimestamp(0);
-      isPlaying = true;
-      isPaused = false;
-      audioEnded = false;
-      document.dispatchEvent(new CustomEvent('play-clicked'));
-      // cleanup listeners
-      window.removeEventListener('orientationchange', onOrientationChange);
-      window.removeEventListener('resize', onOrientationChange);
-    };
-
-    let onOrientationChange = null;
-
-    if (isMobile) {
-      if (isDeviceRotated()) {
-        startNow();
-      } else {
-        onOrientationChange = () => {
-          if (isDeviceRotated()) startNow();
-        };
-        window.addEventListener('orientationchange', onOrientationChange);
-        window.addEventListener('resize', onOrientationChange);
-      }
-    } else {
-      startNow();
-    }
-  }
-});
-
-const remoteBtn = document.getElementById('remote-btn');
-remoteBtn.addEventListener('click', async () => {
-  await goToRemote();
-  isRemote = true;
-});
-
-const soloRemoteBtn = document.getElementById('solo-remote-btn');
-soloRemoteBtn.addEventListener('click', async () => {
-  isSolo = true;
-  // enable local gyro (requests permission on iOS)
-  try {
-    await enableLocalGyro();
-  } catch (e) {
-    console.warn('enableLocalGyro failed', e);
+    startPlayback(0);
+    startPlaybackTimestamp(0);
+    isPlaying = true;
+    isPaused = false;
+    audioEnded = false;
+    document.dispatchEvent(new CustomEvent('play-clicked'));
   }
 });
 
@@ -1531,13 +1289,11 @@ textInterval = setInterval(() => {
   if (loadingDiv) {
     const entry = texts[textCount % texts.length];
     if (typeof entry === 'string') {
-      const td = document.getElementById('loading-texts');
-      if (td) td.textContent = entry;
-      if (td) td.style.fontSize = '12rem';
+      loadingDiv.textContent = entry;
+      loadingDiv.style.fontSize = '12rem';
     } else {
-      const td = document.getElementById('loading-texts');
-      if (td) td.textContent = entry.text;
-      if (td) td.style.fontSize = entry.fontSize;
+      loadingDiv.textContent = entry.text;
+      loadingDiv.style.fontSize = entry.fontSize;
     }
   }
 }, 500);

@@ -4,6 +4,46 @@ import { defaultServer } from './config.js';
 import { isMobile } from './utils.js';
 import LYRICS from './lyrics.js';
 
+// Helper: detect whether the device is rotated to landscape
+function isDeviceRotated() {
+  if (typeof isMobile === 'boolean' && !isMobile) return true;
+  try {
+    if (
+      screen &&
+      screen.orientation &&
+      typeof screen.orientation.type === 'string'
+    ) {
+      return screen.orientation.type.indexOf('landscape') !== -1;
+    }
+  } catch (e) {}
+  if (typeof window.orientation !== 'undefined')
+    return Math.abs(window.orientation) === 90;
+  if (window.matchMedia)
+    return window.matchMedia('(orientation: landscape)').matches;
+  return false;
+}
+
+// Attempt to lock screen orientation to landscape. Must be called from a user gesture.
+async function lockLandscape() {
+  try {
+    if (
+      screen &&
+      screen.orientation &&
+      typeof screen.orientation.lock === 'function'
+    ) {
+      await screen.orientation.lock('landscape');
+      console.log('Orientation locked to landscape');
+      return true;
+    }
+  } catch (e) {
+    console.warn('screen.orientation.lock failed', e);
+  }
+
+  // Some platforms (older iOS Safari) don't support lock; return false so caller can fallback.
+  console.warn('Orientation lock not supported or failed');
+  return false;
+}
+
 // --- Cesium Standalone Logic ---
 let viewer, movingPoint;
 let audioCtx, source, analyser, timeDomainData, frequencyData, audioBuffer;
@@ -23,6 +63,39 @@ let lastLyricsIndex = -1;
 const gyro = { alpha: null, beta: null, gamma: null };
 let cameraHeading = 0; // store current camera rotation in radians - correlated with gyro's rotation
 
+// Local gyro flag (when using the same device as controller)
+window.localGyroEnabled = false;
+
+async function enableLocalGyro() {
+  if (window.localGyroEnabled) return;
+  // iOS requires explicit permission
+  try {
+    if (
+      typeof DeviceOrientationEvent !== 'undefined' &&
+      typeof DeviceOrientationEvent.requestPermission === 'function'
+    ) {
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm !== 'granted') {
+        console.warn('DeviceOrientation permission not granted');
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('DeviceOrientation permission request failed', e);
+  }
+
+  function handleLocalOrientation(e) {
+    // update shared gyro object so existing code can use it
+    gyro.alpha = e.alpha;
+    gyro.beta = e.beta;
+    gyro.gamma = e.gamma;
+  }
+
+  window.addEventListener('deviceorientation', handleLocalOrientation, true);
+  window.localGyroEnabled = true;
+  console.log('Local gyro enabled');
+}
+
 let socket = null;
 
 // Loading States
@@ -32,7 +105,9 @@ let roomReady = false;
 
 // Modes
 let hasSelectedMode = true;
-let isGuest = false;
+let isAutopilot = false;
+let isSolo = false;
+let isRemote = false;
 
 // UI Elements
 // GYRO INFO UI
@@ -41,7 +116,7 @@ gyroInfoUI.id = 'gyro-info-ui';
 gyroInfoUI.style.position = 'fixed';
 gyroInfoUI.style.left = '10px';
 gyroInfoUI.style.top = '10px';
-gyroInfoUI.style.zIndex = 30000;
+gyroInfoUI.style.zIndex = 10;
 gyroInfoUI.style.color = 'white';
 gyroInfoUI.innerText = '00.00';
 document.body.appendChild(gyroInfoUI);
@@ -51,7 +126,7 @@ deltaInfoUI.id = 'delta-info-ui';
 deltaInfoUI.style.position = 'fixed';
 deltaInfoUI.style.right = '10px';
 deltaInfoUI.style.top = '10px';
-deltaInfoUI.style.zIndex = 30000;
+deltaInfoUI.style.zIndex = 10;
 deltaInfoUI.style.color = 'white';
 deltaInfoUI.innerText = '00.00';
 document.body.appendChild(deltaInfoUI);
@@ -61,7 +136,7 @@ idUI.id = 'id-ui';
 idUI.style.position = 'fixed';
 idUI.style.bottom = '10px';
 idUI.style.right = '10px';
-idUI.style.zIndex = 30000;
+idUI.style.zIndex = 10;
 idUI.style.color = 'white';
 idUI.innerText = '000@EKEZIA00';
 document.body.appendChild(idUI);
@@ -70,13 +145,13 @@ document.body.appendChild(idUI);
 const ui = document.createElement('div');
 ui.id = 'room-code-panel';
 ui.style.position = 'fixed';
-ui.style.width = '100vw';
+ui.style.width = '100dvw';
 ui.style.height = '100dvh';
 ui.style.display = 'flex';
 ui.style.flexDirection = 'column';
 ui.style.justifyContent = 'center';
 ui.style.alignItems = 'center';
-ui.style.zIndex = 30000;
+ui.style.zIndex = 99;
 ui.style.top = 0;
 ui.style.color = 'white';
 ui.style.pointerEvents = 'auto'; // panel itself is interactive
@@ -86,19 +161,42 @@ ui.style.filter = 'blur(0.5px)';
 ui.style.textAlign = 'center';
 ui.style.transition =
   'backdrop-filter 0.7s cubic-bezier(.4,0,.2,1), background 0.7s cubic-bezier(.4,0,.2,1), opacity 0.7s cubic-bezier(.4,0,.2,1)';
-ui.innerHTML = `
+ui.innerHTML = !isMobile
+  ? `
     <p style="width:400px;font-size:1.2rem;">Enter the room code on your mobile device to use it as remote control</p>
 
     <div id="room-input-container" style="display:flex;gap:6px;margin-bottom:6px"></div>
     <input id="gc-room" type="hidden" />
     <p style="font-size:1.2rem;">Don't have a mobile device?</p>
     <button id="gc-connect" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">AUTOPILOT</button>
-  `;
+  `
+  : `
+    <p style="font-size:1.2rem;">MACHINE #4 will autonomously drive for you.</p>
+    <button id="gc-connect" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">AUTOPILOT</button>
+    <p style="font-size:1.2rem;">Do you have a Desktop? Use your device to control MACHINE #4 on Desktop.</p>
+    <button id="remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">REMOTE</button>
+    `;
+
+//     <p style="font-size:1.2rem;">Use your device to control MACHINE #4 on your mobile device.</p>
+// <button id="solo-remote-btn" style="box-shadow: 0 0 50px 0 rgba(255, 255, 255, 0.5);transform: translateY(-16px);">SOLO</button>
+
 // <div id='gc-status' style='margin-top:6px;font-size:12px;opacity:0.9'>
 //   Disconnected
 // </div>;
 
 document.body.appendChild(ui);
+
+const rn = document.createElement('div');
+
+function hideUiPanel() {
+  if (ui) {
+    ui.style.backdropFilter = 'blur(0px)';
+    ui.style.opacity = '0';
+    ui.style.pointerEvents = 'none';
+  }
+
+  // Keep `ui` in the DOM and rely on opacity/pointerEvents only.
+}
 
 // create visible digit spans
 const roomInputContainerEl = document.getElementById('room-input-container');
@@ -126,23 +224,186 @@ const smoothEl = document.getElementById('gc-smooth');
 // Create loading overlay
 let loadingDiv = document.createElement('div');
 loadingDiv.id = 'audio-loading';
-loadingDiv.textContent = 'MACHINE #4';
 loadingDiv.style.position = 'fixed';
 loadingDiv.style.top = '0';
 loadingDiv.style.left = '0';
-loadingDiv.style.width = '100vw';
-loadingDiv.style.height = '100vh';
+loadingDiv.style.width = '100dvw';
+loadingDiv.style.height = '100dvh';
 loadingDiv.style.background = 'rgba(0,0,0,0.4)';
 loadingDiv.style.color = 'white';
 loadingDiv.style.display = 'flex';
 loadingDiv.style.alignItems = 'center';
 loadingDiv.style.justifyContent = 'center';
 loadingDiv.style.fontSize = '6rem';
-loadingDiv.style.zIndex = '999';
+loadingDiv.style.zIndex = 10001;
 loadingDiv.style.backdropFilter = 'blur(16px)';
-loadingDiv.style.filter = 'blur(4px)';
+loadingDiv.style.opacity = 1;
+loadingDiv.style.pointerEvents = 'none';
+loadingDiv.style.transition =
+  'backdrop-filter 0.7s cubic-bezier(.4,0,.2,1), background 0.7s cubic-bezier(.4,0,.2,1), opacity 0.7s cubic-bezier(.4,0,.2,1)';
+
+// container for rotating texts (so other overlays can be independent)
+const loadingTexts = document.createElement('div');
+loadingTexts.id = 'loading-texts';
+loadingTexts.style.pointerEvents = 'none';
+loadingTexts.style.textAlign = 'center';
+loadingTexts.style.fontSize = '6rem';
+loadingTexts.textContent = 'MACHINE #4';
+loadingTexts.style.filter = 'blur(4px)';
+loadingTexts.style.color = 'white';
+loadingTexts.style.opacity = '1';
+loadingDiv.appendChild(loadingTexts);
+// Blinking text — start immediately so desktop shows it
+loadingTexts.style.color = 'white';
+loadingTexts.style.opacity = '1';
+loadingTexts.style.zIndex = '10002';
+const blinkTexts = [
+  { text: 'MACHINE #4', fontSize: '12rem' },
+  { text: 'DAVID BORING', fontSize: '12rem' },
+];
+let textCount = 0;
+const textInterval = setInterval(() => {
+  textCount++;
+  const entry = blinkTexts[textCount % blinkTexts.length];
+  console.debug('loading-text blink', textCount, entry);
+  const td = document.getElementById('loading-texts');
+  if (td) td.textContent = entry.text;
+  if (td) td.style.fontSize = entry.fontSize;
+}, 500);
+
+// on mobile, show a small hint at the bottom of the loading overlay
 document.body.appendChild(loadingDiv);
 
+// If mobile and not rotated, show the rotate notice immediately so it's
+// visible alongside the loading texts from the start.
+if (isMobile) {
+  rn.id = 'rotate-notice';
+  rn.style.position = 'fixed';
+  rn.style.left = '50%';
+  rn.style.bottom = '20%';
+  rn.style.transform = 'translateX(-50%)';
+  rn.style.padding = '12px 18px';
+  rn.style.background = 'rgba(0,0,0,0.6)';
+  rn.style.color = 'white';
+  rn.style.borderRadius = '8px';
+  rn.style.zIndex = 10001;
+  rn.style.fontSize = '2.5rem';
+  rn.style.textAlign = 'center';
+  rn.textContent = 'Please rotate your device to landscape to continue.';
+  rn.style.opacity = '0.2';
+  rn.style.transition = 'opacity 0.3s ease';
+  loadingDiv.appendChild(rn);
+}
+
+// shared rotation handler to toggle visibility of rotate notices
+function handleRotationChange() {
+  const rotated = isDeviceRotated();
+  const rnEl = document.getElementById('rotate-notice');
+
+  if (!rotated) {
+    // Portrait: always show loading overlay (opacity) and hide main UI
+    if (loadingDiv) loadingDiv.style.opacity = '1';
+    if (ui) {
+      ui.style.opacity = '0';
+      ui.style.pointerEvents = 'none';
+    }
+    if (rnEl) rnEl.style.opacity = audioReady && mapReady ? '1' : '0';
+    return;
+  }
+
+  // Landscape: hide loading overlay (fade) and adjust UI
+  if (loadingDiv) loadingDiv.style.opacity = '0';
+  if (rnEl) rnEl.style.opacity = '0';
+  if (ui) {
+    ui.style.opacity = audioReady && mapReady && !isAutopilot ? '1' : '0';
+    ui.style.pointerEvents = audioReady && mapReady ? 'auto' : 'none';
+  }
+
+  if (audioReady && mapReady) tryStartExperience();
+}
+
+if (isMobile) {
+  window.addEventListener('orientationchange', handleRotationChange);
+  window.addEventListener('resize', handleRotationChange);
+}
+
+// Mobile-only fullscreen toggle (top-center, 10px from top)
+if (isMobile) {
+  (function createMobileFullscreenToggle() {
+    function isFullscreen() {
+      return !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+    }
+
+    const fsBtn = document.createElement('button');
+    fsBtn.id = 'mobile-fullscreen-toggle';
+    fsBtn.title = 'Toggle fullscreen';
+    fsBtn.textContent = isFullscreen() ? '(-)' : '+';
+    fsBtn.style.position = 'fixed';
+    fsBtn.style.left = '50%';
+    fsBtn.style.transform = 'translateX(-50%)';
+    fsBtn.style.top = '10px';
+    fsBtn.style.zIndex = '999';
+    fsBtn.style.width = '46px';
+    fsBtn.style.height = '46px';
+    fsBtn.style.borderRadius = '24px';
+    fsBtn.style.background = 'rgba(0,0,0,0.6)';
+    fsBtn.style.color = 'white';
+    fsBtn.style.border = 'none';
+    fsBtn.style.fontSize = '24px';
+    fsBtn.style.display = 'flex';
+    fsBtn.style.alignItems = 'center';
+    fsBtn.style.justifyContent = 'center';
+    fsBtn.style.cursor = 'pointer';
+    fsBtn.style.pointerEvents = 'auto';
+    fsBtn.style.display = 'none';
+
+    async function enterFullscreen() {
+      const el = document.documentElement;
+      try {
+        if (el.requestFullscreen) await el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+        else if (el.msRequestFullscreen) el.msRequestFullscreen();
+      } catch (e) {
+        console.warn('requestFullscreen failed', e);
+      }
+    }
+
+    async function exitFullscreen() {
+      try {
+        if (document.exitFullscreen) await document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+        else if (document.msExitFullscreen) document.msExitFullscreen();
+      } catch (e) {
+        console.warn('exitFullscreen failed', e);
+      }
+    }
+
+    fsBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!isFullscreen()) await enterFullscreen();
+      else await exitFullscreen();
+      // label will be updated by fullscreenchange handlers
+    });
+
+    function updateLabel() {
+      fsBtn.textContent = isFullscreen() ? '(-)' : '+';
+    }
+
+    document.addEventListener('fullscreenchange', updateLabel);
+    document.addEventListener('webkitfullscreenchange', updateLabel);
+    document.addEventListener('mozfullscreenchange', updateLabel);
+    document.addEventListener('MSFullscreenChange', updateLabel);
+
+    document.body.appendChild(fsBtn);
+  })();
+}
 // currentLon & currentLat is in interaction.js
 window.addEventListener('DOMContentLoaded', () => {
   Cesium.Ion.defaultAccessToken =
@@ -257,7 +518,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   viewer.scene.globe.maximumScreenSpaceError = 4.0; // coarser detail = faster
 
-  loadAudio('/audio.wav').then(() => {
+  loadAudio('/public/audio.wav').then(() => {
     setTimeout(() => {
       tryStartExperience();
     }, 1000);
@@ -265,22 +526,44 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function checkAllReady() {
-  if (audioReady && mapReady && roomReady) {
-    ui.style.opacity = 1;
+  if (!(audioReady && mapReady)) return;
+
+  if (isMobile) if (rn) rn.style.opacity = '1';
+
+  ui.style.opacity = 1;
+  // use shared isDeviceRotated() helper above
+
+  // show a small rotate prompt on mobile when not rotated
+  if (isMobile && !isDeviceRotated()) {
+    // ensure loading overlay stays visible and main UI stays hidden in portrait
+    if (loadingDiv) loadingDiv.style.opacity = '1';
+    // ensure rotation handler updates UI immediately
+    if (typeof handleRotationChange === 'function') handleRotationChange();
+    return;
+  }
+
+  // Desktop or mobile rotated to landscape: show UI (opacity-only)
+  if (!isAutopilot && ui) {
+    ui.style.pointerEvents = 'auto';
+    ui.style.opacity = '1';
   }
 }
 
 function tryStartExperience() {
   if (audioReady && mapReady) {
-    const loadingDiv = document.getElementById('audio-loading');
-    if (loadingDiv) {
-      loadingDiv.style.transition = 'opacity 0.7s cubic-bezier(.4,0,.2,1)';
-      loadingDiv.style.opacity = '0';
-      setTimeout(() => {
-        loadingDiv.remove();
-      }, 700);
-    }
     setInfoUIVisibility(true); // Show info UIs when music starts
+
+    // Only remove the loading overlay when not on mobile portrait
+    if (isDeviceRotated()) {
+      if (loadingDiv) {
+        loadingDiv.style.opacity = '0';
+      }
+    } else {
+      // keep loading overlay visible in portrait
+      if (loadingDiv) {
+        loadingDiv.style.opacity = '1';
+      }
+    }
   }
 }
 
@@ -299,7 +582,7 @@ async function loadAudio(url) {
 let startTime = 0; // when the playback started
 let pauseTime = 0; // how many seconds have already played
 const playBtn = document.getElementById('playBtn');
-playBtn.style.pointerEvents = 'auto';
+playBtn.style.pointerEvents = 'none';
 playBtn.style.zIndex = '20001';
 playBtn.style.opacity = '0';
 playBtn.onmouseenter = () => {
@@ -310,7 +593,7 @@ playBtn.onmouseleave = () => {
 };
 const playbackTimestamp = document.getElementById('playback-timestamp');
 const pauseBtn = document.getElementById('pauseBtn');
-pauseBtn.style.pointerEvents = 'auto';
+pauseBtn.style.pointerEvents = 'none';
 pauseBtn.style.zIndex = '20001';
 pauseBtn.style.opacity = '0';
 pauseBtn.onmouseenter = () => {
@@ -401,8 +684,8 @@ function startPlayback(fromOffset = 0) {
     lyricsContainer.style.position = 'fixed';
     lyricsContainer.style.left = '0';
     lyricsContainer.style.top = '0';
-    lyricsContainer.style.width = '100vw';
-    lyricsContainer.style.height = '100vh';
+    lyricsContainer.style.width = '100dvw';
+    lyricsContainer.style.height = '100dvh';
     lyricsContainer.style.pointerEvents = 'none';
     lyricsContainer.style.overflow = 'hidden';
     lyricsContainer.style.display = 'flex';
@@ -421,8 +704,8 @@ function startPlayback(fromOffset = 0) {
     cesiumContainer.style.position = 'fixed';
     cesiumContainer.style.top = '0';
     cesiumContainer.style.left = '0';
-    cesiumContainer.style.width = '100vw';
-    cesiumContainer.style.height = '100vh';
+    cesiumContainer.style.width = '100dvw';
+    cesiumContainer.style.height = '100dvh';
     cesiumContainer.style.zIndex = '10'; // above lyrics
     cesiumContainer.style.pointerEvents = '';
   }
@@ -466,8 +749,8 @@ function startPlayback(fromOffset = 0) {
 
     let speed = amplitude * 0.001; // tweak as needed
 
-    // Access as GUEST
-    if (isGuest) {
+    // Access as AUTOPILOT
+    if (isAutopilot) {
       currentLat += speed * 2; // move northward
       currentLon += Math.sin(audioCtx.currentTime) * speed * 0.5; // small sideways movement for variation
       locDiv.innerText = `${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`;
@@ -497,7 +780,46 @@ function startPlayback(fromOffset = 0) {
       currentLat += speed * 2;
     }
 
-    if (!isGuest) showPlayOnHover();
+    // Access as SOLO — speed scales with local gyro (device tilt)
+    if (isSolo) {
+      // ensure local gyro is enabled when possible
+      if (isMobile && !window.localGyroEnabled) enableLocalGyro();
+
+      // map beta tilt (front/back) to speed multiplier
+      const gyroVal = Math.abs(gyro.beta || 0);
+      let gyroMultiplier = 1 + gyroVal / 90; // ranges ~1..3
+      gyroMultiplier = Math.min(Math.max(0.5, gyroMultiplier), 3);
+
+      currentLat += speed * 2 * gyroMultiplier; // move northward scaled by tilt
+      currentLon +=
+        Math.sin(audioCtx.currentTime) * speed * 0.5 * gyroMultiplier; // small sideways movement scaled
+      locDiv.innerText = `${currentLat.toFixed(6)}, ${currentLon.toFixed(6)}`;
+      deltaInfoUI.innerText = amplitude;
+      idUI.innerText = '0S0L000000';
+
+      if (movingPoint && viewer) {
+        const newPosition = Cesium.Cartesian3.fromDegrees(
+          currentLon,
+          currentLat,
+          height,
+        );
+        movingPoint.position = newPosition;
+
+        viewer.camera.setView({
+          destination: newPosition,
+          orientation: {
+            heading: 0, // always north
+            pitch: Cesium.Math.toRadians(-15),
+            roll: 0,
+          },
+        });
+      }
+    } else {
+      deltaInfoUI.innerText = amplitude;
+      currentLat += speed * 2;
+    }
+
+    if (!isAutopilot) showPlayOnHover();
 
     // Show lyrics (active line only)
     if (lyricsContainer && lyricsRanges) {
@@ -520,10 +842,10 @@ function startPlayback(fromOffset = 0) {
           const lyricSpan = document.createElement('span');
           lyricSpan.textContent = text;
           lyricSpan.style.color = 'white';
-          lyricSpan.style.fontSize = '5rem';
+          lyricSpan.style.fontSize = isMobile ? '3rem' : '5rem';
           lyricSpan.style.fontWeight = 'bold';
           lyricSpan.style.whiteSpace = 'nowrap';
-          lyricSpan.style.filter = 'blur(2px)';
+          lyricSpan.style.filter = isMobile ? 'blur(1px)' : 'blur(2px)';
           lyricSpan.style.textAlign = 'center';
           lyricSpan.style.opacity = '0.9';
           lyricSpan.style.position = 'absolute';
@@ -830,12 +1152,8 @@ document.addEventListener('DOMContentLoaded', showUserLocation);
       hasSelectedMode = true;
       // Change the UI Guest Panel
       // Hide the room code UI
-      hideRoomCodePanel();
+      hideUiPanel();
       status = 'OK';
-      setTimeout(() => {
-        playBtn.style.pointerEvents = 'auto'; // enable clicks globally
-        pauseBtn.style.pointerEvents = 'auto'; // enable clicks globally
-      }, 1000);
     } else console.log('Wrong room code.');
   });
 
@@ -892,39 +1210,39 @@ document.addEventListener('DOMContentLoaded', showUserLocation);
 
 // UI ELEMENTS & LOGIC
 // redirect to /remote/ if on mobile device — but only if that path exists
-if (isMobile) {
-  (async () => {
+// if (isMobile) {
+async function goToRemote() {
+  try {
+    const remoteIndex = new URL('/remote/index.html', window.location.origin)
+      .href;
+    // Try a HEAD request first; some hosts don't allow HEAD so fall back to GET
+    let ok = false;
     try {
-      const remoteIndex = new URL('/remote/index.html', window.location.origin)
-        .href;
-      // Try a HEAD request first; some hosts don't allow HEAD so fall back to GET
-      let ok = false;
+      const resp = await fetch(remoteIndex, { method: 'HEAD' });
+      ok = resp && resp.ok;
+    } catch (headErr) {
       try {
-        const resp = await fetch(remoteIndex, { method: 'HEAD' });
-        ok = resp && resp.ok;
-      } catch (headErr) {
-        try {
-          const resp2 = await fetch(remoteIndex, { method: 'GET' });
-          ok = resp2 && resp2.ok;
-        } catch (getErr) {
-          ok = false;
-        }
+        const resp2 = await fetch(remoteIndex, { method: 'GET' });
+        ok = resp2 && resp2.ok;
+      } catch (getErr) {
+        ok = false;
       }
-
-      if (ok) {
-        const currentUrl = new URL(window.location.href);
-        currentUrl.pathname = '/remote/';
-        window.location.href = currentUrl.href;
-      } else {
-        console.warn(
-          'Remote path not found; skipping mobile redirect to /remote/',
-        );
-      }
-    } catch (err) {
-      console.warn('Error checking remote path, skipping redirect', err);
     }
-  })();
+
+    if (ok) {
+      const currentUrl = new URL(window.location.href);
+      currentUrl.pathname = '/remote/';
+      window.location.href = currentUrl.href;
+    } else {
+      console.warn(
+        'Remote path not found; skipping mobile redirect to /remote/',
+      );
+    }
+  } catch (err) {
+    console.warn('Error checking remote path, skipping redirect', err);
+  }
 }
+// }
 
 // UI elements
 // Playback timestamp element
@@ -1087,8 +1405,8 @@ function showCreditOverlay(enableBlurAnimation = false) {
     credit.style.position = 'fixed';
     credit.style.top = '0';
     credit.style.left = '0';
-    credit.style.width = '100vw';
-    credit.style.height = '100vh';
+    credit.style.width = '100dvw';
+    credit.style.height = '100dvh';
     credit.style.background = 'rgba(0,0,0,0.8)';
     credit.style.color = 'white';
     credit.style.display = 'flex';
@@ -1199,28 +1517,82 @@ document.addEventListener('restart-clicked', function () {
 });
 
 const guestBtn = document.getElementById('gc-connect');
-guestBtn.addEventListener('click', () => {
+guestBtn.addEventListener('click', async (e) => {
+  e.preventDefault();
+
   shadowMovementEnabled = true;
-  isGuest = true;
+  isAutopilot = true;
   hasSelectedMode = true;
 
   // Hide the room UI
-  hideRoomCodePanel();
+  hideUiPanel();
 
   // Enable playback controls
   playBtn.style.pointerEvents = 'auto';
   pauseBtn.style.pointerEvents = 'auto';
   pauseBtn.style.opacity = '0'; // Ensure pauseBtn is hidden on entry
-  // Immediately start playback in guest mode
+  // Start playback in guest mode. Uses shared isDeviceRotated() helper.
+
   if (typeof startPlayback === 'function') {
-    startPlayback(0);
-    startPlaybackTimestamp(0);
-    isPlaying = true;
-    isPaused = false;
-    audioEnded = false;
-    document.dispatchEvent(new CustomEvent('play-clicked'));
+    const startNow = () => {
+      startPlayback(0);
+      startPlaybackTimestamp(0);
+      isPlaying = true;
+      isPaused = false;
+      audioEnded = false;
+      document.dispatchEvent(new CustomEvent('play-clicked'));
+      loadingDiv.style.opacity = isDeviceRotated() ? '0' : '1';
+      // cleanup listeners
+      window.removeEventListener('orientationchange', onOrientationChange);
+      window.removeEventListener('resize', onOrientationChange);
+    };
+
+    let onOrientationChange = null;
+
+    if (isMobile) {
+      if (isDeviceRotated()) {
+        startNow();
+      } else {
+        onOrientationChange = () => {
+          if (isDeviceRotated()) startNow();
+        };
+        window.addEventListener('orientationchange', onOrientationChange);
+        window.addEventListener('resize', onOrientationChange);
+      }
+    } else {
+      startNow();
+    }
   }
 });
+
+const remoteBtn = document.getElementById('remote-btn');
+remoteBtn.addEventListener('click', async () => {
+  await goToRemote();
+  isRemote = true;
+});
+
+const soloRemoteBtn = document.getElementById('solo-remote-btn');
+if (soloRemoteBtn) {
+  soloRemoteBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
+    // Attempt to enable local gyro (permission must run inside user gesture)
+    isSolo = true;
+    try {
+      await enableLocalGyro();
+    } catch (err) {
+      console.warn('enableLocalGyro failed', err);
+    }
+
+    // Only hide UI after attempting permission so prompt isn't blocked
+    try {
+      hideUiPanel();
+    } catch (hideErr) {
+      console.warn('hideUiPanel failed', hideErr);
+    }
+  });
+} else {
+  console.warn('solo-remote-btn not found; cannot attach SOLO handler');
+}
 
 // Space bar and Fullscreen listener
 document.addEventListener('keydown', (e) => {
@@ -1264,36 +1636,4 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function hideRoomCodePanel() {
-  const roomCodePanel = document.getElementById('room-code-panel');
-  if (roomCodePanel) {
-    roomCodePanel.style.backdropFilter = 'blur(0px)';
-    roomCodePanel.style.opacity = '0';
-  }
-
-  setTimeout(() => {
-    if (roomCodePanel) roomCodePanel.remove();
-  }, 700);
-}
-
 // --- BLINKING ---
-// Text animation
-const texts = [
-  { text: 'MACHINE #4', fontSize: '12rem' },
-  { text: 'DAVID BORING', fontSize: '12rem' },
-];
-let textInterval;
-let textCount = 0;
-textInterval = setInterval(() => {
-  textCount++;
-  if (loadingDiv) {
-    const entry = texts[textCount % texts.length];
-    if (typeof entry === 'string') {
-      loadingDiv.textContent = entry;
-      loadingDiv.style.fontSize = '12rem';
-    } else {
-      loadingDiv.textContent = entry.text;
-      loadingDiv.style.fontSize = entry.fontSize;
-    }
-  }
-}, 500);
